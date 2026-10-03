@@ -49,7 +49,7 @@ Source: "{#StageDir}\RepeatBoost.Engine.exe"; DestDir: "{app}"; Flags: ignorever
 Source: "{#StageDir}\settings\*"; DestDir: "{app}\settings"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{userprograms}\RepeatBoost"; Filename: "{app}\settings\RepeatBoost.Settings.exe"; IconFilename: "{app}\settings\RepeatBoost.Settings.exe"
+Name: "{userprograms}\RepeatBoost"; Filename: "{app}\RepeatBoost.Engine.exe"; IconFilename: "{app}\RepeatBoost.Engine.exe"
 
 [Code]
 const
