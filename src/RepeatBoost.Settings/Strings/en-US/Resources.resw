@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="EnabledCard.Header" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="EnabledCard.Description" xml:space="preserve">
+    <value>Turn RepeatBoost keyboard repeat on or off.</value>
+  </data>
+  <data name="EnabledToggle.OnContent" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="EnabledToggle.OffContent" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="InitialDelayCard.Header" xml:space="preserve">
+    <value>Initial delay</value>
+  </data>
+  <data name="InitialDelayCard.Description" xml:space="preserve">
+    <value>Delay before custom repeat starts, in milliseconds.</value>
+  </data>
+  <data name="RepeatIntervalCard.Header" xml:space="preserve">
+    <value>Repeat interval</value>
+  </data>
+  <data name="RepeatIntervalCard.Description" xml:space="preserve">
+    <value>Interval between repeated key events, in milliseconds.</value>
+  </data>
+  <data name="TargetKeysCard.Header" xml:space="preserve">
+    <value>Target keys</value>
+  </data>
+  <data name="TargetKeysCard.Description" xml:space="preserve">
+    <value>Choose which physical keys can start custom repeat.</value>
+  </data>
+  <data name="ArrowKeysItem.Content" xml:space="preserve">
+    <value>Arrow keys only</value>
+  </data>
+  <data name="AllKeysItem.Content" xml:space="preserve">
+    <value>All keys</value>
+  </data>
+  <data name="WindowsLogonCard.Header" xml:space="preserve">
+    <value>Windows logon</value>
+  </data>
+  <data name="WindowsLogonCard.Description" xml:space="preserve">
+    <value>Start RepeatBoost automatically when you sign in.</value>
+  </data>
+  <data name="AutostartToggle.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="AutostartToggle.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="StartupWarningTitle" xml:space="preserve">
+    <value>RepeatBoost Settings</value>
+  </data>
+  <data name="SettingsNotSavedTitle" xml:space="preserve">
+    <value>Settings were not saved</value>
+  </data>
+  <data name="SettingsNotSavedFallback" xml:space="preserve">
+    <value>The current settings could not be saved.</value>
+  </data>
+  <data name="OkButton" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="RetryButton" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="DiscardAndCloseButton" xml:space="preserve">
+    <value>Discard and close</value>
+  </data>
+  <data name="CancelButton" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="AutostartSettingNotSaved" xml:space="preserve">
+    <value>Autostart setting was not saved.</value>
+  </data>
+  <data name="SelectTargetPreset" xml:space="preserve">
+    <value>Select a target key preset.</value>
+  </data>
+  <data name="WholeNumberRange" xml:space="preserve">
+    <value>Value must be a whole number from {0} to {1}.</value>
+  </data>
+  <data name="AutostartConflict" xml:space="preserve">
+    <value>Autostart registration was changed externally.</value>
+  </data>
+  <data name="AutostartReadFailed" xml:space="preserve">
+    <value>Autostart registration could not be read.</value>
+  </data>
+  <data name="SettingsNotSavedPrefix" xml:space="preserve">
+    <value>Settings were not saved:</value>
+  </data>
+</root>

@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <RepeatBoostVersionMajor>1</RepeatBoostVersionMajor>
+    <RepeatBoostVersionMinor>0</RepeatBoostVersionMinor>
+    <RepeatBoostVersionPatch>0</RepeatBoostVersionPatch>
+    <RepeatBoostProductVersion>$(RepeatBoostVersionMajor).$(RepeatBoostVersionMinor).$(RepeatBoostVersionPatch)</RepeatBoostProductVersion>
+    <RepeatBoostWindowsVersion>$(RepeatBoostProductVersion).0</RepeatBoostWindowsVersion>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ResourceCompile>
+      <PreprocessorDefinitions>REPEATBOOST_VERSION_MAJOR=$(RepeatBoostVersionMajor);REPEATBOOST_VERSION_MINOR=$(RepeatBoostVersionMinor);REPEATBOOST_VERSION_PATCH=$(RepeatBoostVersionPatch);REPEATBOOST_PRODUCT_VERSION=$(RepeatBoostProductVersion);REPEATBOOST_WINDOWS_VERSION=$(RepeatBoostWindowsVersion);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+</Project>

@@ -1,0 +1,8 @@
+#pragma once
+
+#define IDI_REPEATBOOST 101
+#define IDR_TRAY_MENU 201
+
+#define IDM_TRAY_ENABLE 100
+#define IDM_TRAY_SETTINGS 102
+#define IDM_TRAY_EXIT 103

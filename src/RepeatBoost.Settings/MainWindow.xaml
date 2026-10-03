@@ -1,0 +1,86 @@
+<Window
+    x:Class="RepeatBoost.Settings.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    Title="RepeatBoost">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            x:Name="AppTitleBar"
+            Grid.Row="0">
+            <StackPanel
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="6">
+                <Image
+                    Width="16"
+                    Height="16"
+                    Source="RepeatBoost.ico"
+                    Stretch="Uniform" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="RepeatBoost"
+                    FontWeight="SemiBold" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel
+            Grid.Row="1"
+            Width="560"
+            Padding="24,16,24,24"
+            Spacing="8">
+            <controls:SettingsCard
+                x:Uid="EnabledCard">
+                <ToggleSwitch
+                    x:Uid="EnabledToggle"
+                    x:Name="EnabledToggle" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                x:Uid="InitialDelayCard">
+                <NumberBox
+                    x:Name="InitialDelayBox"
+                    Width="120"
+                    Minimum="0"
+                    Maximum="250"
+                    SmallChange="10"
+                    SpinButtonPlacementMode="Compact" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                x:Uid="RepeatIntervalCard">
+                <NumberBox
+                    x:Name="RepeatIntervalBox"
+                    Width="120"
+                    Minimum="5"
+                    Maximum="33"
+                    SmallChange="10"
+                    SpinButtonPlacementMode="Compact" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                x:Uid="TargetKeysCard">
+                <ComboBox
+                    x:Name="TargetPresetBox"
+                    Width="160">
+                    <ComboBoxItem x:Uid="ArrowKeysItem" />
+                    <ComboBoxItem x:Uid="AllKeysItem" />
+                </ComboBox>
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                x:Uid="WindowsLogonCard">
+                <ToggleSwitch
+                    x:Uid="AutostartToggle"
+                    x:Name="AutostartToggle" />
+            </controls:SettingsCard>
+
+        </StackPanel>
+    </Grid>
+</Window>
