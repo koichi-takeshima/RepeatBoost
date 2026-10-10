@@ -10,7 +10,7 @@ A short tap is handled as a normal single keystroke. RepeatBoost starts its own 
 
 - Windows 11
 - x64
-- Product Version: **1.0.0**
+- Product Version: **1.1.0**
 
 ## Installation
 
@@ -30,33 +30,64 @@ If the required runtimes cannot be satisfied, Setup does not report the RepeatBo
 
 When RepeatBoost starts, the RepeatBoost icon appears in the Windows notification area.
 
-On Japanese environments, the tray menu contains:
+The tray menu contains:
 
-- **有効** — enable / disable RepeatBoost's custom repeat
-- **設定** — open the Settings window
-- **終了** — exit RepeatBoost
+- **Enable** — turn RepeatBoost's custom key repeat on or off
+- **Settings** — open the Settings window
+- **Exit** — exit RepeatBoost
 
-On English environments, these items are shown as `Enable` / `Settings` / `Exit`.
+When the UI language is Japanese, these items are shown as **有効**, **設定**, and **終了**.
 
-When enabled, **有効 / Enable** has a check mark. The enabled / disabled state is saved as a setting and is preserved across restarts.
+When enabled, **Enable** has a check mark. The enabled / disabled state is saved as a setting and is preserved across restarts.
 
 ## Settings
 
-The following settings can be changed:
+The Settings window has two global controls:
 
 | Item | Values | Default |
 |---|---|---|
 | Enabled | Enabled / Disabled | Disabled |
-| Initial Delay | 0–250 ms | 250 ms |
-| Repeat Interval | 5–33 ms | 33 ms |
-| Target Keys | Arrow Keys Only / All Keys | Arrow Keys Only |
-| Windows Logon | On / Off | Off |
+| Windows Logon (Autostart) | On / Off | Off |
+
+**Enabled** controls RepeatBoost's custom repeat for all Repeat settings. **Windows Logon** controls whether the Engine starts when you sign in to Windows.
+
+### Repeat settings
+
+Below these global controls, **Repeat settings** contains **1–16 ordered sets**, displayed as **Setting 1**, **Setting 2**, and so on. Each set has its own three settings:
+
+| Setting in each set | Values | Default |
+|---|---|---|
+| Initial delay | 0–250 ms | 250 ms |
+| Repeat interval | 5–33 ms | 33 ms |
+| Target keys | Arrow keys only / All keys / Custom | Arrow keys only |
+
+A fresh installation starts **disabled**, with **one set** (250 ms / 33 ms / Arrow keys only) and autostart off. Adding a set creates another set with these same timing and target defaults.
+
+Use the icon buttons to manage sets:
+
+- **+** beside Repeat settings (**Add repeat set**): add a set at the bottom. The button is disabled when there are 16 sets.
+- **Up / Down** on a set: move it higher or lower in the list.
+- **Delete** on a set: remove it. At least one set must remain, so Delete is disabled when only one is present.
+
+**Order determines priority.** For a newly pressed key, RepeatBoost checks sets from the top and uses the **first set whose Target keys match**. Only that set's Initial delay and Repeat interval apply. If a key is included in more than one set, a lower set does **not** override a higher matching set. If no set matches, RepeatBoost does not start custom repeat for that key.
+
+### Custom target keys
+
+Select **Custom** in a set's **Target keys** card to specify individual repeat targets. The selected keys appear as tokens in a vertical list below the selector.
+
+To add a key, click **+** (**Add custom key**) below the list. When prompted to press a key, **press the physical key you want to register**. The accepted key appears in the list; click a token's **×** to remove it. A key that is not eligible is ignored during capture. You can cancel capture by moving focus away.
+
+You cannot add Ctrl / Shift / Alt / Win or toggle keys such as CapsLock / NumLock / ScrollLock as repeat targets. Other keys, including function, media and keyboard-specific keys, may be used when their physical key event is delivered by Windows. Typing text into the token field does **not** register a key or define a macro. An empty Custom list matches no keys.
+
+### Saving and window layout
 
 Settings has no Save button. Closing the Settings window normally saves the changes that exist at that time.
 
 If saving fails, you can retry, discard the changes and close, or cancel the close operation.
 
 While Settings is open, RepeatBoost continues running with the current settings. When Settings closes, RepeatBoost reloads the saved settings, so restarting RepeatBoost itself is not required.
+
+The Settings window can be resized or maximized. It remembers its normal position and size and whether it was maximized, then restores them when you open it again (adjusting an unreachable position if the monitor layout changes).
 
 The settings file is stored at:
 
@@ -71,8 +102,8 @@ For RepeatBoost target keys, the first physical key press passes through once as
 Main behavior:
 
 - A short tap produces only one keystroke.
-- Holding a key starts repeat after the Initial Delay.
-- Even with `Initial Delay = 0`, the first custom repeat occurs **after one Repeat Interval**, not immediately after the first key press.
+- Holding a key starts repeat after the Initial delay of the highest-priority matching set.
+- Even with `Initial delay = 0`, the first custom repeat occurs **after one Repeat interval** of the matching set, not immediately after the first key press.
 - When multiple keys are pressed, only the last pressed target key repeats.
 - If B is pressed while A is held, A's repeat stops. Releasing B does not automatically resume A while A remains held.
 - Pressing another physical key while repeat is active stops the current repeat even if that key is not a repeat target.
@@ -86,9 +117,14 @@ Main behavior:
 
 **All Keys**
 
-- Ordinary keys, F1–F12, media keys, OEM / Japanese-keyboard-specific keys, PrintScreen, Pause, and similar keys can be repeat targets.
+- Ordinary keys, F1–F12, media keys, OEM / Japanese-keyboard-specific keys, PrintScreen, Pause, and other physical keys can be targets when Windows delivers their key events.
 - Modifier keys themselves, such as Ctrl / Shift / Alt / Win, do not start repeat.
 - Toggle keys themselves, such as CapsLock / NumLock / ScrollLock, also do not start repeat.
+
+**Custom**
+
+- Only the keys registered in that set's Custom list can match. Use Settings → Target keys → Custom to add keys by pressing them or remove tokens with **×**.
+- Modifier and toggle keys are excluded here too. No custom repeat starts for an empty list.
 
 ## Start at Windows logon
 
@@ -130,7 +166,7 @@ A previous `settings.ini` can be reused after reinstalling RepeatBoost.
 ## Version / Author
 
 - Product: **RepeatBoost**
-- Product Version: **1.0.0**
+- Product Version: **1.1.0**
 - Author / Publisher: **Koichi Takeshima**
 
 ## License
@@ -152,7 +188,7 @@ RepeatBoost は、Windows 11 の標準 keyboard repeat より短い Initial Dela
 
 - Windows 11
 - x64
-- Product Version: **1.0.0**
+- Product Version: **1.1.0**
 
 ## インストール
 
@@ -184,23 +220,54 @@ RepeatBoost を起動すると Windows の通知領域に RepeatBoost icon が�
 
 ## Settings
 
-Settings では次の項目を変更できます。
+Settings には、すべてのリピート設定に共通する次の項目があります。
 
 | 項目 | 値 | 既定値 |
 |---|---|---|
 | 有効 | 有効 / 無効 | 無効 |
-| 初期遅延 | 0–250 ms | 250 ms |
-| リピート間隔 | 5–33 ms | 33 ms |
-| 対象キー | 矢印キーのみ / すべてのキー | 矢印キーのみ |
-| Windows ログオン | オン / オフ | オフ |
+| 自動起動（Windows ログオン） | オン / オフ | オフ |
 
-Settings には Save button はありません。通常どおり Settings window を閉じると、その時点の変更内容を保存します。
+**有効** は RepeatBoost の独自リピート全体を切り替えます。**自動起動** は Windows サインイン時に Engine を起動するかどうかを指定します。
 
-保存に失敗した場合は、再試行、変更を破棄して閉じる、または閉じる操作を取り消すことができます。
+### リピート設定
 
-Settings を開いている間も RepeatBoost は現在の設定で動作を継続します。Settings を閉じると保存済みの設定を再読み込みするため、RepeatBoost 本体の再起動は不要です。
+その下の **リピート設定** には、**1～16 件の設定**を順序付きで登録できます。画面には **設定 1**、**設定 2** … と表示され、各設定には次の 3 項目があります。
 
-設定ファイルは次に保存されます。
+| 各設定の項目 | 値 | 既定値 |
+|---|---|---|
+| 初期遅延 | 0～250 ms | 250 ms |
+| リピート間隔 | 5～33 ms | 33 ms |
+| 対象キー | 矢印キーのみ / すべてのキー / カスタム | 矢印キーのみ |
+
+初期状態は **無効**、リピート設定が **1 件**（250 ms / 33 ms / 矢印キーのみ）、自動起動がオフです。設定を追加した場合も、追加された設定の初期遅延・リピート間隔・対象キーはこの既定値になります。
+
+設定の操作には次のアイコンを使用します。
+
+- リピート設定の右側の **＋**（**リピート設定を追加**）: 一覧の末尾に追加します。16 件ある場合は追加できません。
+- 各設定の **上へ / 下へ**: 一覧内で設定の順序を入れ替えます。
+- 各設定の **削除**: その設定を削除します。最低 1 件は必要なため、1 件だけの場合は削除できません。
+
+**一覧の上にある設定ほど優先されます。** キーを新しく押したとき、RepeatBoost は上から順に対象キーを調べ、**最初に一致した設定**の初期遅延とリピート間隔だけを適用します。同じキーを複数の設定に登録しても、下位の設定が上位の一致を上書きすることはありません。どの設定にも一致しないキーでは、独自リピートを開始しません。
+
+### カスタム対象キー
+
+各設定の **対象キー** で **カスタム** を選ぶと、キーを個別に指定できます。登録済みのキーは選択欄の下に縦並びのトークンとして表示されます。
+
+キーを追加するには、一覧の下の **＋**（**カスタムキーを追加**）を押し、キー入力の案内が表示されたら **登録したい物理キーを実際に押します**。受け付けられたキーが一覧に追加されます。削除するときは各トークンの **×** を押します。登録できないキーは入力待ちの間に無視され、フォーカスを移すと入力待ちを解除できます。
+
+Ctrl / Shift / Alt / Win や CapsLock / NumLock / ScrollLock などの切り替えキー自身は登録できません。それ以外のファンクションキー、メディアキー、キーボード固有キーなども、Windows から物理キー入力として通知される場合は対象にできます。トークン欄へ文字を直接入力してもキー登録やマクロの設定にはなりません。カスタムが空の場合は、どのキーにも一致しません。
+
+### 保存とウィンドウ配置
+
+Settings には保存ボタンがありません。通常どおりウィンドウを閉じると、その時点の変更内容を保存します。
+
+保存に失敗した場合は、再試行、変更を破棄して閉じる、または閉じる操作の取り消しを選べます。
+
+Settings を開いている間も RepeatBoost は現在の設定で動作を続けます。Settings を閉じると保存済みの設定を再読み込みするため、RepeatBoost 本体の再起動は不要です。
+
+Settings のウィンドウはサイズ変更と最大化に対応します。通常時の位置・サイズと最大化状態が記録され、次回起動時に復元されます。モニター構成が変わって画面外になる場合は位置が補正されます。
+
+設定ファイルの保存先:
 
 ```text
 %LOCALAPPDATA%\RepeatBoost\settings.ini
@@ -213,8 +280,8 @@ RepeatBoost の対象キーでは、最初の物理キー押下を通常どお�
 主な動作:
 
 - 短いタップは1打だけ
-- キーを保持すると Initial Delay 経過後にリピートを開始
-- `Initial Delay = 0` でも、最初の独自リピートは最初のキー押下直後ではなく **1 Repeat Interval 後**
+- キーを保持すると、一致した最優先設定の初期遅延の経過後にリピートを開始
+- `初期遅延 = 0` でも、最初の独自リピートはキー押下直後ではなく、一致した設定の **1 リピート間隔後**
 - 複数キーを押した場合は、最後に押した対象キーだけをリピート
 - Aを保持中にBを押すとAのリピートを停止し、Bを離しても保持中のAは自動再開しない
 - リピート中に別の物理キーを押すと、そのキーがリピート対象外でも現在のリピートを停止
@@ -228,9 +295,14 @@ RepeatBoost の対象キーでは、最初の物理キー押下を通常どお�
 
 **すべてのキー**
 
-- 通常キー、F1–F12、media key、OEM / 日本語キーボード固有 key、PrintScreen、Pause 等を対象にできます。
+- 通常キー、F1～F12、メディアキー、OEM / 日本語キーボード固有キー、PrintScreen、Pause なども、Windows から物理キー入力として通知される場合は対象になります。
 - Ctrl / Shift / Alt / Win 等の modifier key 自身はリピートを開始しません。
-- CapsLock / NumLock / ScrollLock 等の toggle key 自身もリピートを開始しません。
+- CapsLock / NumLock / ScrollLock 等の切り替えキー自身もリピートを開始しません。
+
+**カスタム**
+
+- その設定のカスタム一覧に登録されたキーだけが対象です。Settings の「対象キー → カスタム」で物理キーを押して追加し、トークンの **×** で削除します。
+- ここでも修飾キーと切り替えキーは除外されます。登録が空の場合は独自リピートを開始しません。
 
 ## Windows ログオン時の自動起動
 
@@ -272,7 +344,7 @@ Windows の次の画面から RepeatBoost をアンインストールできま�
 ## Version / Author
 
 - Product: **RepeatBoost**
-- Product Version: **1.0.0**
+- Product Version: **1.1.0**
 - Author / Publisher: **Koichi Takeshima**
 
 ## License

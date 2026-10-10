@@ -56,7 +56,7 @@
     <value>Enabled</value>
   </data>
   <data name="EnabledCard.Description" xml:space="preserve">
-    <value>Turn RepeatBoost keyboard repeat on or off.</value>
+    <value>Turn key repeat acceleration on or off.</value>
   </data>
   <data name="EnabledToggle.OnContent" xml:space="preserve">
     <value>Enabled</value>
@@ -64,23 +64,59 @@
   <data name="EnabledToggle.OffContent" xml:space="preserve">
     <value>Disabled</value>
   </data>
+  <data name="RepeatSettingsHeader.Text" xml:space="preserve">
+    <value>Repeat settings</value>
+  </data>
+  <data name="AddRepeatSetButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Add repeat set</value>
+  </data>
+  <data name="AddRepeatSetToolTip.Content" xml:space="preserve">
+    <value>Add repeat set</value>
+  </data>
+  <data name="MoveRepeatSetUpButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Up</value>
+  </data>
+  <data name="MoveRepeatSetUpToolTip.Content" xml:space="preserve">
+    <value>Up</value>
+  </data>
+  <data name="MoveRepeatSetDownButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Down</value>
+  </data>
+  <data name="MoveRepeatSetDownToolTip.Content" xml:space="preserve">
+    <value>Down</value>
+  </data>
+  <data name="DeleteRepeatSetButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="DeleteRepeatSetToolTip.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="RepeatSetDisplayName" xml:space="preserve">
+    <value>Setting {0}</value>
+  </data>
   <data name="InitialDelayCard.Header" xml:space="preserve">
     <value>Initial delay</value>
   </data>
   <data name="InitialDelayCard.Description" xml:space="preserve">
-    <value>Delay before custom repeat starts, in milliseconds.</value>
+    <value>Delay before repeat starts [ms].</value>
   </data>
   <data name="RepeatIntervalCard.Header" xml:space="preserve">
     <value>Repeat interval</value>
   </data>
   <data name="RepeatIntervalCard.Description" xml:space="preserve">
-    <value>Interval between repeated key events, in milliseconds.</value>
+    <value>Interval between repeats [ms].</value>
   </data>
   <data name="TargetKeysCard.Header" xml:space="preserve">
     <value>Target keys</value>
   </data>
   <data name="TargetKeysCard.Description" xml:space="preserve">
-    <value>Choose which physical keys can start custom repeat.</value>
+    <value>Choose which keys to repeat.</value>
+  </data>
+  <data name="TargetPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Target keys</value>
+  </data>
+  <data name="TargetPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve">
+    <value>Choose which keys to repeat.</value>
   </data>
   <data name="ArrowKeysItem.Content" xml:space="preserve">
     <value>Arrow keys only</value>
@@ -88,11 +124,26 @@
   <data name="AllKeysItem.Content" xml:space="preserve">
     <value>All keys</value>
   </data>
+  <data name="CustomKeysItem.Content" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="AddCustomKeyButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Add custom key</value>
+  </data>
+  <data name="AddCustomKeyToolTip.Content" xml:space="preserve">
+    <value>Add custom key</value>
+  </data>
+  <data name="RemoveCustomKeyButton.Content" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="PressCustomKey" xml:space="preserve">
+    <value>Press a key…</value>
+  </data>
   <data name="WindowsLogonCard.Header" xml:space="preserve">
-    <value>Windows logon</value>
+    <value>Autostart</value>
   </data>
   <data name="WindowsLogonCard.Description" xml:space="preserve">
-    <value>Start RepeatBoost automatically when you sign in.</value>
+    <value>Start automatically at logon.</value>
   </data>
   <data name="AutostartToggle.OnContent" xml:space="preserve">
     <value>On</value>

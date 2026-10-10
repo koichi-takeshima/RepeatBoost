@@ -13,9 +13,22 @@ public:
     EngineControlPlane(
         HINSTANCE hInstance,
         settings::SettingsStore& settingsStore,
-        const engine::TargetPreset preset,
+        const engine::RepeatSettings settings) noexcept
+        : hookExecution_(hInstance, settings),
+          controlWindow_(
+              hInstance,
+              settingsStore,
+              hookExecution_,
+              settingsProcess_)
+    {
+    }
+
+    EngineControlPlane(
+        HINSTANCE hInstance,
+        settings::SettingsStore& settingsStore,
+        const engine::TargetSettings target,
         const engine::TimingSettings timing) noexcept
-        : hookExecution_(hInstance, preset, timing),
+        : hookExecution_(hInstance, target, timing),
           controlWindow_(
               hInstance,
               settingsStore,

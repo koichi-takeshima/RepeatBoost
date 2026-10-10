@@ -13,11 +13,9 @@ using TargetPreset = engine::TargetPreset;
 
 struct SettingsDocument
 {
-    int nSchemaVersion = 1;
+    int nSchemaVersion = 2;
     bool bEnabled = false;
-    int nInitialDelayMs = 250;
-    int nRepeatIntervalMs = 33;
-    TargetPreset targetPreset = TargetPreset::ArrowKeys;
+    engine::RepeatSettings repeatSettings{};
 
     bool operator==(const SettingsDocument&) const = default;
 };

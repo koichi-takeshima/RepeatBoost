@@ -1,11 +1,13 @@
+using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.Windows.ApplicationModel.Resources;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using Windows.Foundation;
 using Windows.Graphics;
 
 namespace RepeatBoost.Settings;
@@ -22,6 +24,16 @@ public sealed partial class MainWindow : Window
     private string? _startupWarning;
     private bool _closeWithoutSaving;
     private bool _saveFailureDialogOpen;
+    private CustomKeyCaptureState _customKeyCapture;
+    private readonly ObservableCollection<RepeatSetEditorItem>
+        _repeatSetEditors = [];
+    private RepeatSetEditorItem? _customKeyCaptureOwner;
+    private Button? _customKeyCaptureButton;
+    private ContentControl? _customKeyCaptureSurface;
+    private bool _enabledEdited;
+    private RectInt32? _normalWindowBounds;
+    private bool _windowMaximizedCandidate;
+    private bool _restoreMaximizedPending;
 
     // ExtractIconExW transfers ownership of these HICONs to this Window.
     // AppWindow's icon ID may reference the underlying HICON, so keep the
@@ -44,6 +56,15 @@ public sealed partial class MainWindow : Window
 
         ApplyExecutableIcon();
 
+        _settingsPath =
+            SettingsPaths.GetDefaultSettingsFilePath();
+
+        _autostart = new AutostartRegistration(
+            new CurrentUserRunKeyAccess(),
+            SettingsPaths.GetEngineExecutablePath());
+
+        RestoreWindowPlacement();
+
         if (Content is FrameworkElement contentRoot)
         {
             contentRoot.Loaded += ContentRoot_Loaded;
@@ -52,14 +73,12 @@ public sealed partial class MainWindow : Window
         AppWindow.Closing += AppWindow_Closing;
         Closed += MainWindow_Closed;
 
-        _settingsPath =
-            SettingsPaths.GetDefaultSettingsFilePath();
-
-        _autostart = new AutostartRegistration(
-            new CurrentUserRunKeyAccess(),
-            SettingsPaths.GetEngineExecutablePath());
+        RepeatSetItems.ItemsSource =
+            _repeatSetEditors;
 
         LoadCurrentState();
+        EnabledToggle.Toggled +=
+            EnabledToggle_Toggled;
     }
 
     private async void ContentRoot_Loaded(
@@ -76,8 +95,10 @@ public sealed partial class MainWindow : Window
                 "Settings XamlRoot is unavailable after content load.");
         }
 
-        _xamlRoot.Changed += XamlRoot_Changed;
-        ConfigureFixedWindow();
+        ApplyPendingMaximizedRestore();
+        InitializeWindowPlacementTracking();
+        AppWindow.Changed += AppWindow_Changed;
+
         SetStartupCloak(false);
 
         if (!string.IsNullOrWhiteSpace(_startupWarning))
@@ -180,89 +201,165 @@ public sealed partial class MainWindow : Window
         object sender,
         WindowEventArgs args)
     {
+        AppWindow.Changed -= AppWindow_Changed;
         AppWindow.Closing -= AppWindow_Closing;
 
-        if (_xamlRoot is not null)
-        {
-            _xamlRoot.Changed -= XamlRoot_Changed;
-            _xamlRoot = null;
-        }
+        SaveWindowPlacementBestEffort();
+
+        _xamlRoot = null;
 
         ReleaseExecutableIcons();
     }
 
-    private void XamlRoot_Changed(
-        XamlRoot sender,
-        XamlRootChangedEventArgs args) =>
-        ApplyContentDesiredClientSize();
-
-    private void ConfigureFixedWindow()
+    private void RestoreWindowPlacement()
     {
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        try
         {
-            presenter.IsResizable = false;
-            presenter.IsMaximizable = false;
+            if (SettingsWindowPlacementStore.TryLoad(
+                    _settingsPath,
+                    out var placement))
+            {
+                var displayArea =
+                    DisplayArea.GetFromRect(
+                        placement.NormalBounds,
+                        DisplayAreaFallback.Nearest);
+                var correctedBounds =
+                    SettingsWindowPlacementStore
+                        .ConstrainToWorkArea(
+                            placement.NormalBounds,
+                            displayArea.WorkArea);
+
+                AppWindow.MoveAndResize(
+                    correctedBounds);
+                _normalWindowBounds =
+                    correctedBounds;
+                _windowMaximizedCandidate =
+                    placement.Maximized;
+                _restoreMaximizedPending =
+                    placement.Maximized;
+
+                return;
+            }
+        }
+        catch
+        {
+            // Window placement is convenience state. Fall back to the
+            // platform default without making Settings startup fail.
         }
 
-        ApplyContentDesiredClientSize();
+        InitializeWindowPlacementTracking();
     }
 
-    private void ApplyContentDesiredClientSize()
+    private void ApplyPendingMaximizedRestore()
     {
-        if (Content is not FrameworkElement contentRoot ||
-            _xamlRoot is null)
+        if (!_restoreMaximizedPending)
         {
             return;
         }
 
-        var rasterizationScale =
-            _xamlRoot.RasterizationScale;
+        _restoreMaximizedPending = false;
 
-        if (!double.IsFinite(rasterizationScale) ||
-            rasterizationScale <= 0)
+        try
         {
-            return;
+            if (AppWindow.Presenter is
+                OverlappedPresenter presenter)
+            {
+                presenter.Maximize();
+                _windowMaximizedCandidate =
+                    true;
+                return;
+            }
+        }
+        catch
+        {
+            // Normal placement remains valid if maximized restore fails.
         }
 
-        contentRoot.Measure(
-            new Size(
-                double.PositiveInfinity,
-                double.PositiveInfinity));
-
-        var desiredSize = contentRoot.DesiredSize;
-        if (!double.IsFinite(desiredSize.Width) ||
-            !double.IsFinite(desiredSize.Height) ||
-            desiredSize.Width <= 0 ||
-            desiredSize.Height <= 0)
-        {
-            return;
-        }
-
-        var desiredClientWidth =
-            checked((int)Math.Ceiling(
-                desiredSize.Width *
-                rasterizationScale));
-
-        var desiredRootHeight =
-            checked((int)Math.Ceiling(
-                desiredSize.Height *
-                rasterizationScale));
-
-        var desiredClientHeight =
-            checked(
-                desiredRootHeight -
-                AppWindow.TitleBar.Height);
-
-        if (desiredClientHeight <= 0)
-        {
-            return;
-        }
-
-        AppWindow.ResizeClient(
-            new SizeInt32(
-                desiredClientWidth,
-                desiredClientHeight));
+        _windowMaximizedCandidate =
+            false;
     }
+
+    private void InitializeWindowPlacementTracking()
+    {
+        if (AppWindow.Presenter is not
+            OverlappedPresenter presenter)
+        {
+            return;
+        }
+
+        SettingsWindowPlacementStore
+            .UpdateTracking(
+                presenter.State,
+                CurrentWindowBounds(),
+                ref _normalWindowBounds,
+                ref _windowMaximizedCandidate);
+    }
+
+    private void AppWindow_Changed(
+        AppWindow sender,
+        AppWindowChangedEventArgs args)
+    {
+        if (sender.Presenter is not
+            OverlappedPresenter presenter)
+        {
+            return;
+        }
+
+        SettingsWindowPlacementStore
+            .UpdateTracking(
+                presenter.State,
+                CurrentWindowBounds(),
+                ref _normalWindowBounds,
+                ref _windowMaximizedCandidate);
+    }
+
+    private RectInt32 CurrentWindowBounds()
+    {
+        var position =
+            AppWindow.Position;
+        var size =
+            AppWindow.Size;
+
+        return new RectInt32(
+            position.X,
+            position.Y,
+            size.Width,
+            size.Height);
+    }
+
+    private void SaveWindowPlacementBestEffort()
+    {
+        if (_normalWindowBounds is not
+            RectInt32 normalBounds)
+        {
+            return;
+        }
+
+        try
+        {
+            SettingsWindowPlacementStore.Save(
+                _settingsPath,
+                new SettingsWindowPlacement(
+                    normalBounds,
+                    _windowMaximizedCandidate));
+        }
+        catch
+        {
+            // Placement persistence is independent convenience state.
+            // It must not turn a successful Settings close into a failure.
+        }
+    }
+
+    private void RepeatSetExpander_Collapsed(
+        object? sender,
+        EventArgs e)
+    {
+        if (sender is SettingsExpander expander)
+        {
+            expander.IsExpanded = true;
+        }
+    }
+
 
 
     private void SetStartupCloak(bool cloaked)
@@ -363,10 +460,23 @@ public sealed partial class MainWindow : Window
         _originalSettings = settings;
 
         EnabledToggle.IsOn = settings.Enabled;
-        InitialDelayBox.Value = settings.InitialDelayMs;
-        RepeatIntervalBox.Value = settings.RepeatIntervalMs;
-        TargetPresetBox.SelectedIndex =
-            settings.TargetPreset == TargetPreset.AllKeys ? 1 : 0;
+
+        _repeatSetEditors.Clear();
+        foreach (var setting in settings.RepeatSets)
+        {
+            _repeatSetEditors.Add(
+                new RepeatSetEditorItem(
+                    setting));
+        }
+
+        if (_repeatSetEditors.Count == 0)
+        {
+            _repeatSetEditors.Add(
+                new RepeatSetEditorItem(
+                    RepeatSettingSet.Default));
+        }
+
+        RefreshRepeatSetEditorPositions();
 
         _startupWarning =
             ApplyAutostartResult(_autostart.Query());
@@ -378,12 +488,14 @@ public sealed partial class MainWindow : Window
         try
         {
             var desired = ReadSettingsFromControls();
-            var patch = BuildPatch(
-                _originalSettings,
-                desired);
 
             _originalSettings =
-                Settings.Patch(_settingsPath, patch);
+                Settings.Save(
+                    _settingsPath,
+                    desired,
+                    enabledEdited:
+                        _enabledEdited);
+            _enabledEdited = false;
 
             var requestedAutostart = AutostartToggle.IsOn;
             if (_originalAutostart is
@@ -438,57 +550,362 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private Settings ReadSettingsFromControls()
+    private void EnabledToggle_Toggled(
+        object sender,
+        RoutedEventArgs e)
     {
-        var initialDelay = ReadWholeNumber(
-            InitialDelayBox.Value,
-            Settings.InitialDelayMinMs,
-            Settings.InitialDelayMaxMs,
-            nameof(Settings.InitialDelayMs));
-
-        var repeatInterval = ReadWholeNumber(
-            RepeatIntervalBox.Value,
-            Settings.RepeatIntervalMinMs,
-            Settings.RepeatIntervalMaxMs,
-            nameof(Settings.RepeatIntervalMs));
-
-        var targetPreset = TargetPresetBox.SelectedIndex switch
-        {
-            0 => TargetPreset.ArrowKeys,
-            1 => TargetPreset.AllKeys,
-            _ => throw new InvalidOperationException(
-                _resources.GetString(
-                    "SelectTargetPreset")),
-        };
-
-        return new Settings(
-            Settings.CurrentSchemaVersion,
-            EnabledToggle.IsOn,
-            initialDelay,
-            repeatInterval,
-            targetPreset);
+        _enabledEdited = true;
     }
 
-    private static SettingsPatch BuildPatch(
-        Settings original,
-        Settings desired) =>
-        new(
-            Enabled:
-                original.Enabled != desired.Enabled
-                    ? desired.Enabled
-                    : null,
-            InitialDelayMs:
-                original.InitialDelayMs != desired.InitialDelayMs
-                    ? desired.InitialDelayMs
-                    : null,
-            RepeatIntervalMs:
-                original.RepeatIntervalMs != desired.RepeatIntervalMs
-                    ? desired.RepeatIntervalMs
-                    : null,
-            TargetPreset:
-                original.TargetPreset != desired.TargetPreset
-                    ? desired.TargetPreset
-                    : null);
+    private Settings ReadSettingsFromControls()
+    {
+        CancelCustomKeyCapture();
+
+        var repeatSets =
+            _repeatSetEditors
+                .Select(ReadRepeatSettingSet)
+                .ToArray();
+
+        return new Settings(
+            EnabledToggle.IsOn,
+            repeatSets);
+    }
+
+    private RepeatSettingSet ReadRepeatSettingSet(
+        RepeatSetEditorItem item)
+    {
+        var initialDelay = ReadWholeNumber(
+            item.InitialDelayMs,
+            Settings.InitialDelayMinMs,
+            Settings.InitialDelayMaxMs,
+            nameof(RepeatSettingSet.InitialDelayMs));
+
+        var repeatInterval = ReadWholeNumber(
+            item.RepeatIntervalMs,
+            Settings.RepeatIntervalMinMs,
+            Settings.RepeatIntervalMaxMs,
+            nameof(RepeatSettingSet.RepeatIntervalMs));
+
+        var targetPreset =
+            item.TargetPresetIndex switch
+            {
+                0 => TargetPreset.ArrowKeys,
+                1 => TargetPreset.AllKeys,
+                2 => TargetPreset.Custom,
+                _ => throw new InvalidOperationException(
+                    _resources.GetString(
+                        "SelectTargetPreset")),
+            };
+
+        return new RepeatSettingSet(
+            initialDelay,
+            repeatInterval,
+            targetPreset,
+            item.CustomTargets);
+    }
+
+    private void RefreshRepeatSetEditorPositions()
+    {
+        var count =
+            _repeatSetEditors.Count;
+
+        for (var index = 0;
+             index < count;
+             ++index)
+        {
+            _repeatSetEditors[index]
+                .UpdatePosition(
+                    string.Format(
+                        CultureInfo.CurrentCulture,
+                        _resources.GetString(
+                            "RepeatSetDisplayName"),
+                        index + 1),
+                    canMoveUp:
+                        index > 0,
+                    canMoveDown:
+                        index < count - 1,
+                    canDelete:
+                        count >
+                        Settings.MinRepeatSetCount);
+        }
+
+        AddRepeatSetButton.IsEnabled =
+            count < Settings.MaxRepeatSetCount;
+    }
+
+    private static RepeatSetEditorItem?
+        EditorItemFromSender(
+            object sender) =>
+        (sender as FrameworkElement)?
+            .Tag as RepeatSetEditorItem;
+
+    private void AddRepeatSetButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (_repeatSetEditors.Count >=
+            Settings.MaxRepeatSetCount)
+        {
+            return;
+        }
+
+        CancelCustomKeyCapture();
+
+        _repeatSetEditors.Add(
+            new RepeatSetEditorItem(
+                RepeatSettingSet.Default));
+
+        RefreshRepeatSetEditorPositions();
+    }
+
+    private void DeleteRepeatSetButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var item =
+            EditorItemFromSender(sender);
+        if (item is null ||
+            _repeatSetEditors.Count <=
+                Settings.MinRepeatSetCount)
+        {
+            return;
+        }
+
+        CancelCustomKeyCapture();
+
+        var index =
+            _repeatSetEditors.IndexOf(item);
+        if (index < 0)
+        {
+            return;
+        }
+
+        _repeatSetEditors.RemoveAt(index);
+        RefreshRepeatSetEditorPositions();
+    }
+
+    private void MoveRepeatSetUpButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        MoveRepeatSet(
+            EditorItemFromSender(sender),
+            -1);
+    }
+
+    private void MoveRepeatSetDownButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        MoveRepeatSet(
+            EditorItemFromSender(sender),
+            1);
+    }
+
+    private void MoveRepeatSet(
+        RepeatSetEditorItem? item,
+        int delta)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        var source =
+            _repeatSetEditors.IndexOf(item);
+        var destination =
+            source + delta;
+
+        if (source < 0 ||
+            destination < 0 ||
+            destination >=
+                _repeatSetEditors.Count)
+        {
+            return;
+        }
+
+        CancelCustomKeyCapture();
+
+        _repeatSetEditors.Move(
+            source,
+            destination);
+
+        RefreshRepeatSetEditorPositions();
+    }
+
+    private void TargetPresetBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox comboBox ||
+            comboBox.Tag is not
+                RepeatSetEditorItem item)
+        {
+            return;
+        }
+
+        item.TargetPresetIndex =
+            comboBox.SelectedIndex;
+
+        if (item.TargetPresetIndex != 2 &&
+            ReferenceEquals(
+                item,
+                _customKeyCaptureOwner))
+        {
+            CancelCustomKeyCapture();
+        }
+
+    }
+
+    private void AddCustomKeyButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (sender is not Button button ||
+            button.Tag is not
+                RepeatSetEditorItem item ||
+            button.Parent is not
+                StackPanel actionRow)
+        {
+            return;
+        }
+
+        var captureSurface =
+            actionRow.Children
+                .OfType<ContentControl>()
+                .SingleOrDefault(
+                    control =>
+                        control is not Button);
+
+        if (captureSurface is null)
+        {
+            return;
+        }
+
+        CancelCustomKeyCapture();
+
+        _customKeyCapture.Start();
+        _customKeyCaptureOwner = item;
+        _customKeyCaptureButton = button;
+        _customKeyCaptureSurface =
+            captureSurface;
+
+        button.Visibility =
+            Visibility.Collapsed;
+        captureSurface.Content =
+            _resources.GetString(
+                "PressCustomKey");
+        captureSurface.Visibility =
+            Visibility.Visible;
+
+        if (!captureSurface.Focus(
+                FocusState.Programmatic))
+        {
+            CancelCustomKeyCapture();
+        }
+    }
+
+    private void CustomKeyCaptureSurface_KeyDown(
+        object sender,
+        KeyRoutedEventArgs e)
+    {
+        if (sender is not ContentControl surface ||
+            surface.Tag is not
+                RepeatSetEditorItem item ||
+            !ReferenceEquals(
+                item,
+                _customKeyCaptureOwner))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var virtualKey =
+            (int)e.Key;
+
+        if (!_customKeyCapture.TryAccept(
+                virtualKey))
+        {
+            return;
+        }
+
+        item.AddCustomTarget(virtualKey);
+        CompleteCustomKeyCaptureUi();
+
+    }
+
+    private void CustomKeyCaptureSurface_LostFocus(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (_customKeyCapture.IsActive &&
+            ReferenceEquals(
+                sender,
+                _customKeyCaptureSurface))
+        {
+            CancelCustomKeyCapture();
+        }
+    }
+
+    private void CustomKeyTokens_TextChanged(
+        AutoSuggestBox sender,
+        AutoSuggestBoxTextChangedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(
+                sender.Text))
+        {
+            sender.Text =
+                string.Empty;
+        }
+    }
+
+    private void CustomKeyTokens_TokenItemAdding(
+        TokenizingTextBox sender,
+        TokenItemAddingEventArgs e) =>
+        e.Cancel = true;
+
+    private void CustomKeyTokens_TokenItemRemoved(
+        TokenizingTextBox sender,
+        object item)
+    {
+        if (sender.Tag is not
+                RepeatSetEditorItem editor ||
+            item is not CustomKeyToken token)
+        {
+            return;
+        }
+
+        editor.RemoveCustomTarget(
+            token.VirtualKey);
+
+    }
+
+    private void CancelCustomKeyCapture()
+    {
+        _customKeyCapture.Cancel();
+        CompleteCustomKeyCaptureUi();
+    }
+
+    private void CompleteCustomKeyCaptureUi()
+    {
+        if (_customKeyCaptureSurface is not null)
+        {
+            _customKeyCaptureSurface.Visibility =
+                Visibility.Collapsed;
+            _customKeyCaptureSurface.Content =
+                null;
+        }
+
+        if (_customKeyCaptureButton is not null)
+        {
+            _customKeyCaptureButton.Visibility =
+                Visibility.Visible;
+        }
+
+        _customKeyCaptureOwner = null;
+        _customKeyCaptureButton = null;
+        _customKeyCaptureSurface = null;
+    }
 
     private int ReadWholeNumber(
         double value,

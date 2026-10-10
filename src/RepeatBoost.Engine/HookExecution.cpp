@@ -31,10 +31,27 @@ namespace
 } // namespace
 HookExecution::HookExecution(
     const HINSTANCE hInstance,
-    const TargetPreset preset,
-    const TimingSettings timing) noexcept
+    const RepeatSettings settings) noexcept
     : hInstance_(hInstance),
-      repeatRuntime_(preset, timing)
+      repeatRuntime_(settings)
+{
+}
+
+HookExecution::HookExecution(
+    const HINSTANCE hInstance,
+    const TargetSettings target,
+    const TimingSettings timing) noexcept
+    : HookExecution(
+          hInstance,
+          RepeatSettings{
+              .sets = {
+                  RepeatSettingSet{
+                      .target = target,
+                      .timing = timing,
+                  },
+              },
+              .uCount = 1,
+          })
 {
 }
 
@@ -104,22 +121,65 @@ bool HookExecution::Initialize()
 }
 
 bool HookExecution::ApplySettings(
-    const TargetPreset preset,
-    const TimingSettings timing) noexcept
+    const RepeatSettings settings) noexcept
 {
     if (hThread_ == nullptr || dwThreadId_ == 0) return false;
 
-    if (PostThreadMessageW(
+    AcquireSRWLockShared(&settingsPostLock_);
+    if (!bAcceptingSettingsMessages_)
+    {
+        ReleaseSRWLockShared(&settingsPostLock_);
+        return false;
+    }
+
+    auto* pSettingsSnapshot = static_cast<RepeatSettings*>(
+        HeapAlloc(
+            GetProcessHeap(),
+            0,
+            sizeof(RepeatSettings)));
+    if (pSettingsSnapshot == nullptr)
+    {
+        ReleaseSRWLockShared(&settingsPostLock_);
+        HandleControlPostFailure();
+        return false;
+    }
+
+    *pSettingsSnapshot = settings;
+    const bool bPosted =
+        PostThreadMessageW(
             dwThreadId_,
             kMessageApplySettings,
-            static_cast<WPARAM>(preset),
-            PackTiming(timing)) != FALSE)
-    {
-        return true;
-    }
+            reinterpret_cast<WPARAM>(pSettingsSnapshot),
+            0) != FALSE;
+
+    if (!bPosted)
+        (void)HeapFree(
+            GetProcessHeap(),
+            0,
+            pSettingsSnapshot);
+
+    ReleaseSRWLockShared(&settingsPostLock_);
+
+    if (bPosted) return true;
 
     HandleControlPostFailure();
     return false;
+}
+
+bool HookExecution::ApplySettings(
+    const TargetSettings target,
+    const TimingSettings timing) noexcept
+{
+    return ApplySettings(
+        RepeatSettings{
+            .sets = {
+                RepeatSettingSet{
+                    .target = target,
+                    .timing = timing,
+                },
+            },
+            .uCount = 1,
+        });
 }
 
 bool HookExecution::SetActive(const bool bActive) noexcept
@@ -228,32 +288,6 @@ void CALLBACK HookExecution::ForegroundCallback(
         pActiveExecution_->HandleForegroundChanged();
 }
 
-LPARAM HookExecution::PackTiming(
-    const TimingSettings timing) noexcept
-{
-    static_assert(sizeof(LPARAM) >= sizeof(UINT64));
-
-    const UINT64 ullPacked =
-        static_cast<UINT64>(timing.uInitialDelayMs) |
-        (static_cast<UINT64>(timing.uRepeatIntervalMs) << 32);
-
-    return static_cast<LPARAM>(ullPacked);
-}
-
-TimingSettings HookExecution::UnpackTiming(
-    const LPARAM lParam) noexcept
-{
-    const UINT64 ullPacked =
-        static_cast<UINT64>(lParam);
-
-    return TimingSettings{
-        .uInitialDelayMs =
-            static_cast<UINT32>(ullPacked),
-        .uRepeatIntervalMs =
-            static_cast<UINT32>(ullPacked >> 32),
-    };
-}
-
 DWORD HookExecution::Run() noexcept
 {
     (void)SetThreadPriority(
@@ -298,6 +332,13 @@ DWORD HookExecution::Run() noexcept
         hKeyboardHook_ != nullptr &&
         hForegroundHook_ != nullptr &&
         repeatRuntime_.Ready();
+
+    if (bReady)
+    {
+        AcquireSRWLockExclusive(&settingsPostLock_);
+        bAcceptingSettingsMessages_ = true;
+        ReleaseSRWLockExclusive(&settingsPostLock_);
+    }
 
     if (!bReady ||
         hStartedEvent_ == nullptr ||
@@ -420,12 +461,28 @@ bool HookExecution::HandleThreadMessage(
     switch (msg.message)
     {
     case kMessageApplySettings:
+    {
+        auto* pSettingsSnapshot =
+            reinterpret_cast<RepeatSettings*>(
+                msg.wParam);
+        if (pSettingsSnapshot == nullptr)
+        {
+            HandleControlFailureSignal();
+            return false;
+        }
+
+        const RepeatSettings settings =
+            *pSettingsSnapshot;
+        (void)HeapFree(
+            GetProcessHeap(),
+            0,
+            pSettingsSnapshot);
+
         repeatRuntime_.Stop(
             StopReason::SettingsReload);
-        repeatRuntime_.ApplySettings(
-            static_cast<TargetPreset>(msg.wParam),
-            UnpackTiming(msg.lParam));
+        repeatRuntime_.ApplySettings(settings);
         return true;
+    }
 
     case kMessageSetActive:
         if (msg.wParam == FALSE)
@@ -537,6 +594,31 @@ void HookExecution::HandleForegroundChanged() noexcept
 void HookExecution::CleanupThreadResources() noexcept
 {
     InterlockedExchange(&lActiveGate_, FALSE);
+
+    AcquireSRWLockExclusive(&settingsPostLock_);
+    bAcceptingSettingsMessages_ = false;
+
+    MSG settingsMessage{};
+    while (PeekMessageW(
+               &settingsMessage,
+               nullptr,
+               kMessageApplySettings,
+               kMessageApplySettings,
+               PM_REMOVE) != FALSE)
+    {
+        auto* pSettingsSnapshot =
+            reinterpret_cast<RepeatSettings*>(
+                settingsMessage.wParam);
+        if (pSettingsSnapshot != nullptr)
+        {
+            (void)HeapFree(
+                GetProcessHeap(),
+                0,
+                pSettingsSnapshot);
+        }
+    }
+
+    ReleaseSRWLockExclusive(&settingsPostLock_);
 
     if (hForegroundHook_ != nullptr)
     {

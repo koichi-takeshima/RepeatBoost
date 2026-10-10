@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:local="using:RepeatBoost.Settings"
     Title="RepeatBoost">
     <Grid>
         <Grid.RowDefinitions>
@@ -30,57 +31,250 @@
             </StackPanel>
         </Grid>
 
-        <StackPanel
+        <ScrollViewer
+            x:Name="SettingsScrollViewer"
             Grid.Row="1"
-            Width="560"
-            Padding="24,16,24,24"
-            Spacing="8">
-            <controls:SettingsCard
-                x:Uid="EnabledCard">
-                <ToggleSwitch
-                    x:Uid="EnabledToggle"
-                    x:Name="EnabledToggle" />
-            </controls:SettingsCard>
+            Background="Transparent"
+            HorizontalContentAlignment="Stretch"
+            VerticalScrollMode="Auto"
+            VerticalScrollBarVisibility="Auto"
+            HorizontalScrollMode="Disabled"
+            HorizontalScrollBarVisibility="Disabled">
+            <StackPanel
+                x:Name="SettingsContent"
+                HorizontalAlignment="Stretch"
+                Padding="24,16,24,24"
+                Spacing="8">
+                <controls:SettingsCard
+                    x:Uid="EnabledCard">
+                    <ToggleSwitch
+                        x:Uid="EnabledToggle"
+                        x:Name="EnabledToggle" />
+                </controls:SettingsCard>
 
-            <controls:SettingsCard
-                x:Uid="InitialDelayCard">
-                <NumberBox
-                    x:Name="InitialDelayBox"
-                    Width="120"
-                    Minimum="0"
-                    Maximum="250"
-                    SmallChange="10"
-                    SpinButtonPlacementMode="Compact" />
-            </controls:SettingsCard>
+                <controls:SettingsCard
+                    x:Uid="WindowsLogonCard">
+                    <ToggleSwitch
+                        x:Uid="AutostartToggle"
+                        x:Name="AutostartToggle" />
+                </controls:SettingsCard>
 
-            <controls:SettingsCard
-                x:Uid="RepeatIntervalCard">
-                <NumberBox
-                    x:Name="RepeatIntervalBox"
-                    Width="120"
-                    Minimum="5"
-                    Maximum="33"
-                    SmallChange="10"
-                    SpinButtonPlacementMode="Compact" />
-            </controls:SettingsCard>
+                <Grid
+                    Margin="1,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-            <controls:SettingsCard
-                x:Uid="TargetKeysCard">
-                <ComboBox
-                    x:Name="TargetPresetBox"
-                    Width="160">
-                    <ComboBoxItem x:Uid="ArrowKeysItem" />
-                    <ComboBoxItem x:Uid="AllKeysItem" />
-                </ComboBox>
-            </controls:SettingsCard>
+                    <TextBlock
+                        x:Uid="RepeatSettingsHeader"
+                        Grid.Column="0"
+                        Margin="0,0,16,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        FontSize="{ThemeResource ControlContentThemeFontSize}"
+                        FontWeight="Bold"
+                        TextWrapping="Wrap" />
 
-            <controls:SettingsCard
-                x:Uid="WindowsLogonCard">
-                <ToggleSwitch
-                    x:Uid="AutostartToggle"
-                    x:Name="AutostartToggle" />
-            </controls:SettingsCard>
+                    <Button
+                        x:Uid="AddRepeatSetButton"
+                        x:Name="AddRepeatSetButton"
+                        Grid.Column="1"
+                        Width="32"
+                        Height="32"
+                        Padding="0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Click="AddRepeatSetButton_Click">
+                        <Button.Content>
+                            <FontIcon
+                                FontFamily="Segoe Fluent Icons"
+                                FontSize="16"
+                                Glyph="&#xE710;" />
+                        </Button.Content>
+                        <ToolTipService.ToolTip>
+                            <ToolTip x:Uid="AddRepeatSetToolTip" />
+                        </ToolTipService.ToolTip>
+                    </Button>
+                </Grid>
 
-        </StackPanel>
+                <ItemsRepeater
+                    x:Name="RepeatSetItems"
+                    HorizontalAlignment="Stretch">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Spacing="8" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate
+                            x:DataType="local:RepeatSetEditorItem">
+                            <controls:SettingsExpander
+                                Header="{x:Bind DisplayName, Mode=OneWay}"
+                                IsExpanded="True"
+                                Collapsed="RepeatSetExpander_Collapsed"
+                                HorizontalContentAlignment="Stretch">
+                                <StackPanel
+                                    HorizontalAlignment="Right"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                                    <Button
+                                        x:Uid="MoveRepeatSetUpButton"
+                                        Width="32"
+                                        Height="32"
+                                        Padding="0"
+                                        Tag="{x:Bind Self}"
+                                        IsEnabled="{x:Bind CanMoveUp, Mode=OneWay}"
+                                        Click="MoveRepeatSetUpButton_Click">
+                                        <Button.Content>
+                                            <FontIcon
+                                                FontFamily="Segoe Fluent Icons"
+                                                FontSize="16"
+                                                Glyph="&#xE74A;" />
+                                        </Button.Content>
+                                        <ToolTipService.ToolTip>
+                                            <ToolTip x:Uid="MoveRepeatSetUpToolTip" />
+                                        </ToolTipService.ToolTip>
+                                    </Button>
+                                    <Button
+                                        x:Uid="MoveRepeatSetDownButton"
+                                        Width="32"
+                                        Height="32"
+                                        Padding="0"
+                                        Tag="{x:Bind Self}"
+                                        IsEnabled="{x:Bind CanMoveDown, Mode=OneWay}"
+                                        Click="MoveRepeatSetDownButton_Click">
+                                        <Button.Content>
+                                            <FontIcon
+                                                FontFamily="Segoe Fluent Icons"
+                                                FontSize="16"
+                                                Glyph="&#xE74B;" />
+                                        </Button.Content>
+                                        <ToolTipService.ToolTip>
+                                            <ToolTip x:Uid="MoveRepeatSetDownToolTip" />
+                                        </ToolTipService.ToolTip>
+                                    </Button>
+                                    <Button
+                                        x:Uid="DeleteRepeatSetButton"
+                                        Width="32"
+                                        Height="32"
+                                        Padding="0"
+                                        Tag="{x:Bind Self}"
+                                        IsEnabled="{x:Bind CanDelete, Mode=OneWay}"
+                                        Click="DeleteRepeatSetButton_Click">
+                                        <Button.Content>
+                                            <FontIcon
+                                                FontFamily="Segoe Fluent Icons"
+                                                FontSize="16"
+                                                Glyph="&#xE74D;" />
+                                        </Button.Content>
+                                        <ToolTipService.ToolTip>
+                                            <ToolTip x:Uid="DeleteRepeatSetToolTip" />
+                                        </ToolTipService.ToolTip>
+                                    </Button>
+                                </StackPanel>
+
+                                <controls:SettingsExpander.Items>
+                                    <controls:SettingsCard
+                                        x:Uid="InitialDelayCard">
+                                        <NumberBox
+                                            Width="120"
+                                            Minimum="0"
+                                            Maximum="250"
+                                            SmallChange="10"
+                                            SpinButtonPlacementMode="Compact"
+                                            Value="{x:Bind InitialDelayMs, Mode=TwoWay}" />
+                                    </controls:SettingsCard>
+
+                                    <controls:SettingsCard
+                                        x:Uid="RepeatIntervalCard">
+                                        <NumberBox
+                                            Width="120"
+                                            Minimum="5"
+                                            Maximum="33"
+                                            SmallChange="10"
+                                            SpinButtonPlacementMode="Compact"
+                                            Value="{x:Bind RepeatIntervalMs, Mode=TwoWay}" />
+                                    </controls:SettingsCard>
+
+                                    <controls:SettingsCard
+                                        x:Uid="TargetKeysCard"
+                                        ContentAlignment="Right">
+                                        <StackPanel
+                                            HorizontalAlignment="Right"
+                                            Spacing="8">
+                                            <ComboBox
+                                                x:Uid="TargetPresetComboBox"
+                                                Width="160"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center"
+                                                Tag="{x:Bind Self}"
+                                                SelectedIndex="{x:Bind TargetPresetIndex, Mode=TwoWay}"
+                                                SelectionChanged="TargetPresetBox_SelectionChanged">
+                                                <ComboBoxItem x:Uid="ArrowKeysItem" />
+                                                <ComboBoxItem x:Uid="AllKeysItem" />
+                                                <ComboBoxItem x:Uid="CustomKeysItem" />
+                                            </ComboBox>
+
+                                            <StackPanel
+                                                HorizontalAlignment="Right"
+                                                Spacing="8"
+                                                Visibility="{x:Bind CustomEditorVisibility, Mode=OneWay}">
+                                                <controls:TokenizingTextBox
+                                                    Tag="{x:Bind Self}"
+                                                    Width="160"
+                                                    HorizontalAlignment="Right"
+                                                    ItemsSource="{x:Bind CustomKeyTokens, Mode=OneWay}"
+                                                    TextChanged="CustomKeyTokens_TextChanged"
+                                                    TokenItemAdding="CustomKeyTokens_TokenItemAdding"
+                                                    TokenItemRemoved="CustomKeyTokens_TokenItemRemoved">
+                                                    <controls:TokenizingTextBox.TokenItemTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding DisplayName}" />
+                                                        </DataTemplate>
+                                                    </controls:TokenizingTextBox.TokenItemTemplate>
+                                                    <controls:TokenizingTextBox.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Vertical" Spacing="4" />
+                                                        </ItemsPanelTemplate>
+                                                    </controls:TokenizingTextBox.ItemsPanel>
+                                                </controls:TokenizingTextBox>
+
+                                                <StackPanel
+                                                    HorizontalAlignment="Right"
+                                                    Orientation="Horizontal"
+                                                    Spacing="8">
+                                                    <Button
+                                                        x:Uid="AddCustomKeyButton"
+                                                        Width="32"
+                                                        Height="32"
+                                                        Padding="0"
+                                                        Tag="{x:Bind Self}"
+                                                        Click="AddCustomKeyButton_Click">
+                                                        <Button.Content>
+                                                            <FontIcon
+                                                                FontFamily="Segoe Fluent Icons"
+                                                                FontSize="16"
+                                                                Glyph="&#xE710;" />
+                                                        </Button.Content>
+                                                        <ToolTipService.ToolTip>
+                                                            <ToolTip x:Uid="AddCustomKeyToolTip" />
+                                                        </ToolTipService.ToolTip>
+                                                    </Button>
+                                                    <ContentControl
+                                                        Tag="{x:Bind Self}"
+                                                        IsTabStop="True"
+                                                        Visibility="Collapsed"
+                                                        KeyDown="CustomKeyCaptureSurface_KeyDown"
+                                                        LostFocus="CustomKeyCaptureSurface_LostFocus" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </controls:SettingsCard>
+                                </controls:SettingsExpander.Items>
+                            </controls:SettingsExpander>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

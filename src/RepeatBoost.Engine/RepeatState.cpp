@@ -49,24 +49,84 @@ namespace
 
 [[nodiscard]] bool IsRepeatTarget(
     const DWORD dwVirtualKey,
-    const TargetPreset preset) noexcept
+    const TargetSettings& target) noexcept
 {
-    switch (preset)
+    switch (target.preset)
     {
     case TargetPreset::ArrowKeys:
         return IsArrowKey(dwVirtualKey);
 
     case TargetPreset::AllKeys:
         return IsFirstVersionAllKeysTarget(dwVirtualKey);
+
+    case TargetPreset::Custom:
+        return IsFirstVersionAllKeysTarget(dwVirtualKey) &&
+               target.customTargets.Contains(dwVirtualKey);
     }
 
     return false;
 }
 } // namespace
 
-RepeatState::RepeatState(const TargetPreset preset, const TimingSettings timing) noexcept
-    : preset_(preset),
-      timing_(timing)
+bool CustomTargetSet::Contains(const DWORD dwVirtualKey) const noexcept
+{
+    if (dwVirtualKey > 0xFFU) return false;
+
+    const UINT uMaskIndex = static_cast<UINT>(dwVirtualKey >> 6);
+    const UINT uBitIndex = static_cast<UINT>(dwVirtualKey & 0x3FU);
+    return (ullMasks[uMaskIndex] & (1ULL << uBitIndex)) != 0;
+}
+
+void CustomTargetSet::Set(
+    const DWORD dwVirtualKey,
+    const bool bIncluded) noexcept
+{
+    if (dwVirtualKey > 0xFFU) return;
+
+    const UINT uMaskIndex = static_cast<UINT>(dwVirtualKey >> 6);
+    const UINT uBitIndex = static_cast<UINT>(dwVirtualKey & 0x3FU);
+    const UINT64 ullBit = 1ULL << uBitIndex;
+
+    if (bIncluded)
+        ullMasks[uMaskIndex] |= ullBit;
+    else
+        ullMasks[uMaskIndex] &= ~ullBit;
+}
+
+RepeatState::RepeatState(
+    const RepeatSettings settings) noexcept
+    : settings_(
+          settings.uCount >= 1 &&
+                  settings.uCount <= kMaxRepeatSettingSets
+              ? settings
+              : RepeatSettings{})
+{
+}
+
+RepeatState::RepeatState(
+    const TargetSettings target,
+    const TimingSettings timing) noexcept
+    : RepeatState(
+          RepeatSettings{
+              .sets = {
+                  RepeatSettingSet{
+                      .target = target,
+                      .timing = timing,
+                  },
+              },
+              .uCount = 1,
+          })
+{
+}
+
+RepeatState::RepeatState(
+    const TargetPreset preset,
+    const TimingSettings timing) noexcept
+    : RepeatState(
+          TargetSettings{
+              .preset = preset,
+          },
+          timing)
 {
 }
 
@@ -110,7 +170,11 @@ TransitionEffects RepeatState::OnInput(
 
     if (bHasCurrent_) InvalidateCurrent(effects);
 
-    if (!bEffectiveEnabled || !IsRepeatTarget(input.dwVirtualKey, preset_))
+    const RepeatSettingSet* pSetting =
+        bEffectiveEnabled
+            ? FindMatchingSet(input.dwVirtualKey)
+            : nullptr;
+    if (pSetting == nullptr)
     {
         keyState.bClaimed = false;
         return effects;
@@ -118,15 +182,10 @@ TransitionEffects RepeatState::OnInput(
 
     keyState.bClaimed = true;
 
-    const auto uFirstWaitMs =
-        timing_.uInitialDelayMs == 0
-            ? timing_.uRepeatIntervalMs
-            : timing_.uInitialDelayMs;
-
     StartSession(
         input.dwVirtualKey,
         input.key,
-        uFirstWaitMs,
+        pSetting->timing,
         effects);
     return effects;
 }
@@ -194,7 +253,7 @@ TransitionEffects RepeatState::OnSyntheticSendSucceeded(
 
     current_.phase = RepeatPhase::WaitingForTimer;
     effects.bArmTimer = true;
-    effects.uArmTimerMs = timing_.uRepeatIntervalMs;
+    effects.uArmTimerMs = current_.timing.uRepeatIntervalMs;
     return effects;
 }
 
@@ -207,11 +266,29 @@ TransitionEffects RepeatState::Stop(const StopReason reason)
 }
 
 void RepeatState::ApplySettings(
-    const TargetPreset preset,
+    const RepeatSettings settings) noexcept
+{
+    settings_ =
+        settings.uCount >= 1 &&
+                settings.uCount <= kMaxRepeatSettingSets
+            ? settings
+            : RepeatSettings{};
+}
+
+void RepeatState::ApplySettings(
+    const TargetSettings target,
     const TimingSettings timing) noexcept
 {
-    preset_ = preset;
-    timing_ = timing;
+    ApplySettings(
+        RepeatSettings{
+            .sets = {
+                RepeatSettingSet{
+                    .target = target,
+                    .timing = timing,
+                },
+            },
+            .uCount = 1,
+        });
 }
 
 bool RepeatState::TryGetCurrentSession(
@@ -229,12 +306,17 @@ bool RepeatState::TryGetCurrentSession(
 
 TargetPreset RepeatState::Preset() const noexcept
 {
-    return preset_;
+    return settings_.sets[0].target.preset;
 }
 
 TimingSettings RepeatState::Timing() const noexcept
 {
-    return timing_;
+    return settings_.sets[0].timing;
+}
+
+RepeatSettings RepeatState::Settings() const noexcept
+{
+    return settings_;
 }
 
 UINT64 RepeatState::NextGeneration() noexcept
@@ -286,10 +368,26 @@ void RepeatState::ApplyStopClaimPolicy(const StopReason reason) noexcept
     }
 }
 
+const RepeatSettingSet* RepeatState::FindMatchingSet(
+    const DWORD dwVirtualKey) const noexcept
+{
+    for (UINT uIndex = 0; uIndex < settings_.uCount; ++uIndex)
+    {
+        if (IsRepeatTarget(
+                dwVirtualKey,
+                settings_.sets[uIndex].target))
+        {
+            return &settings_.sets[uIndex];
+        }
+    }
+
+    return nullptr;
+}
+
 void RepeatState::StartSession(
     const DWORD dwVirtualKey,
     const KeyIdentity& key,
-    const UINT32 uFirstWaitMs,
+    const TimingSettings timing,
     TransitionEffects& effects) noexcept
 {
     const auto ullGeneration = NextGeneration();
@@ -298,12 +396,16 @@ void RepeatState::StartSession(
         .dwVirtualKey = dwVirtualKey,
         .key = key,
         .ullGeneration = ullGeneration,
+        .timing = timing,
         .phase = RepeatPhase::WaitingForTimer,
     };
     bHasCurrent_ = true;
 
     effects.bArmTimer = true;
-    effects.uArmTimerMs = uFirstWaitMs;
+    effects.uArmTimerMs =
+        timing.uInitialDelayMs == 0
+            ? timing.uRepeatIntervalMs
+            : timing.uInitialDelayMs;
     effects.ullGeneration = ullGeneration;
 }
 } // namespace repeatboost::engine

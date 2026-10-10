@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <RepeatBoostVersionMajor>1</RepeatBoostVersionMajor>
-    <RepeatBoostVersionMinor>0</RepeatBoostVersionMinor>
+    <RepeatBoostVersionMinor>1</RepeatBoostVersionMinor>
     <RepeatBoostVersionPatch>0</RepeatBoostVersionPatch>
     <RepeatBoostProductVersion>$(RepeatBoostVersionMajor).$(RepeatBoostVersionMinor).$(RepeatBoostVersionPatch)</RepeatBoostProductVersion>
     <RepeatBoostWindowsVersion>$(RepeatBoostProductVersion).0</RepeatBoostWindowsVersion>

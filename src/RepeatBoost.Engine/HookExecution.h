@@ -11,7 +11,10 @@ class HookExecution final
 public:
     HookExecution(
         HINSTANCE hInstance,
-        TargetPreset preset,
+        RepeatSettings settings) noexcept;
+    HookExecution(
+        HINSTANCE hInstance,
+        TargetSettings target,
         TimingSettings timing) noexcept;
     ~HookExecution();
 
@@ -19,7 +22,10 @@ public:
     HookExecution& operator=(const HookExecution&) = delete;
 
     [[nodiscard]] bool Initialize();
-    [[nodiscard]] bool ApplySettings(TargetPreset preset, TimingSettings timing) noexcept;
+    [[nodiscard]] bool ApplySettings(RepeatSettings settings) noexcept;
+    [[nodiscard]] bool ApplySettings(
+        TargetSettings target,
+        TimingSettings timing) noexcept;
     [[nodiscard]] bool SetActive(bool bActive) noexcept;
     [[nodiscard]] bool Shutdown() noexcept;
 
@@ -43,6 +49,8 @@ private:
     HWINEVENTHOOK hForegroundHook_{};
 
     RepeatRuntime repeatRuntime_;
+    SRWLOCK settingsPostLock_ = SRWLOCK_INIT;
+    bool bAcceptingSettingsMessages_{};
     volatile LONG lActiveGate_{};
 
     static DWORD WINAPI ThreadProc(void* pContext) noexcept;
@@ -55,9 +63,6 @@ private:
         LONG idChild,
         DWORD dwEventThread,
         DWORD dwmsEventTime);
-
-    static LPARAM PackTiming(TimingSettings timing) noexcept;
-    static TimingSettings UnpackTiming(LPARAM lParam) noexcept;
 
     DWORD Run() noexcept;
     int RunMessageLoop() noexcept;

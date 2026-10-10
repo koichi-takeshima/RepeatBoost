@@ -9,8 +9,9 @@ namespace repeatboost::engine
 class RepeatRuntime final
 {
 public:
+    explicit RepeatRuntime(RepeatSettings settings) noexcept;
     RepeatRuntime(
-        TargetPreset preset,
+        TargetSettings target,
         TimingSettings timing) noexcept;
     ~RepeatRuntime();
 
@@ -21,8 +22,9 @@ public:
     void Shutdown() noexcept;
 
     void Stop(StopReason reason) noexcept;
+    void ApplySettings(RepeatSettings settings) noexcept;
     void ApplySettings(
-        TargetPreset preset,
+        TargetSettings target,
         TimingSettings timing) noexcept;
 
     [[nodiscard]] HookDecision ProcessInput(

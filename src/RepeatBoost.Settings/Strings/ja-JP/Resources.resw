@@ -56,7 +56,7 @@
     <value>有効</value>
   </data>
   <data name="EnabledCard.Description" xml:space="preserve">
-    <value>RepeatBoost のキーリピートを有効または無効にします。</value>
+    <value>キーリピート加速を有効または無効にします。</value>
   </data>
   <data name="EnabledToggle.OnContent" xml:space="preserve">
     <value>有効</value>
@@ -64,23 +64,59 @@
   <data name="EnabledToggle.OffContent" xml:space="preserve">
     <value>無効</value>
   </data>
+  <data name="RepeatSettingsHeader.Text" xml:space="preserve">
+    <value>リピート設定</value>
+  </data>
+  <data name="AddRepeatSetButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>リピート設定を追加</value>
+  </data>
+  <data name="AddRepeatSetToolTip.Content" xml:space="preserve">
+    <value>リピート設定を追加</value>
+  </data>
+  <data name="MoveRepeatSetUpButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>上へ</value>
+  </data>
+  <data name="MoveRepeatSetUpToolTip.Content" xml:space="preserve">
+    <value>上へ</value>
+  </data>
+  <data name="MoveRepeatSetDownButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>下へ</value>
+  </data>
+  <data name="MoveRepeatSetDownToolTip.Content" xml:space="preserve">
+    <value>下へ</value>
+  </data>
+  <data name="DeleteRepeatSetButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="DeleteRepeatSetToolTip.Content" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="RepeatSetDisplayName" xml:space="preserve">
+    <value>設定 {0}</value>
+  </data>
   <data name="InitialDelayCard.Header" xml:space="preserve">
     <value>初期遅延</value>
   </data>
   <data name="InitialDelayCard.Description" xml:space="preserve">
-    <value>カスタムリピートを開始するまでの待ち時間（ミリ秒）。</value>
+    <value>リピートを開始するまでの待ち時間 [ms]。</value>
   </data>
   <data name="RepeatIntervalCard.Header" xml:space="preserve">
     <value>リピート間隔</value>
   </data>
   <data name="RepeatIntervalCard.Description" xml:space="preserve">
-    <value>キーリピートの間隔（ミリ秒）。</value>
+    <value>リピートの間隔 [ms]。</value>
   </data>
   <data name="TargetKeysCard.Header" xml:space="preserve">
     <value>対象キー</value>
   </data>
   <data name="TargetKeysCard.Description" xml:space="preserve">
-    <value>カスタムリピートを開始できる物理キーを選択します。</value>
+    <value>リピートの対象キーを選択します。</value>
+  </data>
+  <data name="TargetPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>対象キー</value>
+  </data>
+  <data name="TargetPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve">
+    <value>リピートの対象キーを選択します。</value>
   </data>
   <data name="ArrowKeysItem.Content" xml:space="preserve">
     <value>矢印キーのみ</value>
@@ -88,11 +124,26 @@
   <data name="AllKeysItem.Content" xml:space="preserve">
     <value>すべてのキー</value>
   </data>
+  <data name="CustomKeysItem.Content" xml:space="preserve">
+    <value>カスタム</value>
+  </data>
+  <data name="AddCustomKeyButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>カスタムキーを追加</value>
+  </data>
+  <data name="AddCustomKeyToolTip.Content" xml:space="preserve">
+    <value>カスタムキーを追加</value>
+  </data>
+  <data name="RemoveCustomKeyButton.Content" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="PressCustomKey" xml:space="preserve">
+    <value>キーを押してください…</value>
+  </data>
   <data name="WindowsLogonCard.Header" xml:space="preserve">
-    <value>Windows ログオン</value>
+    <value>自動起動</value>
   </data>
   <data name="WindowsLogonCard.Description" xml:space="preserve">
-    <value>サインイン時に RepeatBoost を自動的に起動します。</value>
+    <value>ログオン時に自動的に起動します。</value>
   </data>
   <data name="AutostartToggle.OnContent" xml:space="preserve">
     <value>オン</value>

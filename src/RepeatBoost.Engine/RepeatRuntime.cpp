@@ -28,8 +28,15 @@ INPUT BuildSyntheticKeyDown(
 
 } // namespace
 
-RepeatRuntime::RepeatRuntime(const TargetPreset preset, const TimingSettings timing) noexcept
-    : state_(preset, timing)
+RepeatRuntime::RepeatRuntime(const RepeatSettings settings) noexcept
+    : state_(settings)
+{
+}
+
+RepeatRuntime::RepeatRuntime(
+    const TargetSettings target,
+    const TimingSettings timing) noexcept
+    : state_(target, timing)
 {
 }
 
@@ -86,10 +93,16 @@ void RepeatRuntime::Stop(const StopReason reason) noexcept
 }
 
 void RepeatRuntime::ApplySettings(
-    const TargetPreset preset,
+    const RepeatSettings settings) noexcept
+{
+    state_.ApplySettings(settings);
+}
+
+void RepeatRuntime::ApplySettings(
+    const TargetSettings target,
     const TimingSettings timing) noexcept
 {
-    state_.ApplySettings(preset, timing);
+    state_.ApplySettings(target, timing);
 }
 
 HookDecision RepeatRuntime::ProcessInput(

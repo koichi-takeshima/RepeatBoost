@@ -311,13 +311,7 @@ void ControlWindowExecution::HandleSettingsExited()
     const auto settings = settingsStore_.Load();
 
     if (!hookExecution_.ApplySettings(
-            settings.targetPreset,
-            engine::TimingSettings{
-                .uInitialDelayMs =
-                    static_cast<UINT32>(settings.nInitialDelayMs),
-                .uRepeatIntervalMs =
-                    static_cast<UINT32>(settings.nRepeatIntervalMs),
-            }))
+            settings.repeatSettings))
     {
         bHookControlReady_ = false;
     }

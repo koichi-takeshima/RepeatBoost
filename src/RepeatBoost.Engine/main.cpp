@@ -22,11 +22,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
     repeatboost::EngineControlPlane controlPlane(
         hInstance,
         settingsStore,
-        settings.targetPreset,
-        repeatboost::engine::TimingSettings{
-            .uInitialDelayMs = static_cast<UINT32>(settings.nInitialDelayMs),
-            .uRepeatIntervalMs = static_cast<UINT32>(settings.nRepeatIntervalMs),
-        });
+        settings.repeatSettings);
 
     controlPlane.SetConfiguredEnabled(settings.bEnabled);
 
