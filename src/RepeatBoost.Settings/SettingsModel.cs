@@ -111,7 +111,15 @@ public readonly record struct CustomTargetSet(
             0xA0 or 0xA1 or
             0xA2 or 0xA3 or
             0xA4 or 0xA5 or
-            0x14 or 0x90 or 0x91);
+            0x14 or 0x90 or 0x91 or
+            0xF3 or 0x19 or 0xF4 or
+            // DBE alphanumeric / Katakana / Hiragana / Roman
+            0xF0 or 0xF1 or 0xF2 or 0xF5 or
+            // Kana / IME on-off / conversion / IME processing
+            0x15 or 0x16 or 0x1A or 0x1F or
+            0x1C or 0x1D or 0xE5 or
+            // PrintScreen / Pause
+            0x2C or 0x13);
 }
 
 public readonly record struct RepeatSettingSet(
@@ -130,7 +138,11 @@ public readonly record struct RepeatSettingSet(
 public sealed class Settings : IEquatable<Settings>
 {
     private const string SettingsSection = "Settings";
+    private const string ExcludedAppsActiveKey = "ExcludedAppsActive";
+    private const string ExcludedAppsSectionA = "ExcludedAppsA";
+    private const string ExcludedAppsSectionB = "ExcludedAppsB";
     private const int StringBufferSize = 128;
+    private const int ExcludedApplicationReadBufferSize = 257;
 
     public const int LegacySchemaVersion = 1;
     public const int CurrentSchemaVersion = 2;
@@ -140,14 +152,20 @@ public sealed class Settings : IEquatable<Settings>
     public const int InitialDelayMaxMs = 250;
     public const int RepeatIntervalMinMs = 5;
     public const int RepeatIntervalMaxMs = 33;
+    public const int MaxExcludedApplicationCount = 32;
+    public const int MaxExcludedApplicationNameLength = 255;
 
     public Settings(
         bool enabled,
-        IReadOnlyList<RepeatSettingSet> repeatSets)
+        IReadOnlyList<RepeatSettingSet> repeatSets,
+        IReadOnlyList<string>? excludedApplications = null)
     {
         ArgumentNullException.ThrowIfNull(repeatSets);
         Enabled = enabled;
         RepeatSets = repeatSets.ToArray();
+        ExcludedApplications =
+            (excludedApplications ?? Array.Empty<string>())
+                .ToArray();
     }
 
     public Settings(
@@ -156,7 +174,8 @@ public sealed class Settings : IEquatable<Settings>
         int initialDelayMs,
         int repeatIntervalMs,
         TargetPreset targetPreset,
-        CustomTargetSet customTargets = default)
+        CustomTargetSet customTargets = default,
+        IReadOnlyList<string>? excludedApplications = null)
         : this(
             enabled,
             new[]
@@ -166,7 +185,8 @@ public sealed class Settings : IEquatable<Settings>
                     repeatIntervalMs,
                     targetPreset,
                     customTargets),
-            })
+            },
+            excludedApplications)
     {
         _ = schemaVersion;
     }
@@ -174,6 +194,7 @@ public sealed class Settings : IEquatable<Settings>
     public int SchemaVersion => CurrentSchemaVersion;
     public bool Enabled { get; }
     public IReadOnlyList<RepeatSettingSet> RepeatSets { get; }
+    public IReadOnlyList<string> ExcludedApplications { get; }
 
     // Compatibility views of the highest-priority set.
     public int InitialDelayMs => RepeatSets[0].InitialDelayMs;
@@ -194,7 +215,9 @@ public sealed class Settings : IEquatable<Settings>
 
         if (other is null ||
             Enabled != other.Enabled ||
-            RepeatSets.Count != other.RepeatSets.Count)
+            RepeatSets.Count != other.RepeatSets.Count ||
+            ExcludedApplications.Count !=
+                other.ExcludedApplications.Count)
         {
             return false;
         }
@@ -202,6 +225,18 @@ public sealed class Settings : IEquatable<Settings>
         for (var index = 0; index < RepeatSets.Count; ++index)
         {
             if (RepeatSets[index] != other.RepeatSets[index])
+            {
+                return false;
+            }
+        }
+
+        for (var index = 0;
+             index < ExcludedApplications.Count;
+             ++index)
+        {
+            if (!StringComparer.OrdinalIgnoreCase.Equals(
+                    ExcludedApplications[index],
+                    other.ExcludedApplications[index]))
             {
                 return false;
             }
@@ -220,6 +255,12 @@ public sealed class Settings : IEquatable<Settings>
         foreach (var setting in RepeatSets)
         {
             hash.Add(setting);
+        }
+        foreach (var application in ExcludedApplications)
+        {
+            hash.Add(
+                application,
+                StringComparer.OrdinalIgnoreCase);
         }
 
         return hash.ToHashCode();
@@ -252,6 +293,121 @@ public sealed class Settings : IEquatable<Settings>
             }
         }
 
+        if (!TryNormalizeExcludedApplications(
+                settings.ExcludedApplications,
+                out _,
+                out error))
+        {
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    public static bool TryNormalizeExcludedApplicationName(
+        string? value,
+        out string normalized)
+    {
+        normalized = string.Empty;
+        if (value is null)
+        {
+            return false;
+        }
+
+        var start = 0;
+        while (start < value.Length &&
+               IsTrimWhitespace(value[start]))
+        {
+            ++start;
+        }
+
+        var end = value.Length;
+        while (end > start &&
+               IsTrimWhitespace(value[end - 1]))
+        {
+            --end;
+        }
+
+        var length = end - start;
+        if (length <= 4 ||
+            length > MaxExcludedApplicationNameLength)
+        {
+            return false;
+        }
+
+        var candidate =
+            value.Substring(start, length);
+
+        foreach (var ch in candidate)
+        {
+            if (ch < 0x20 ||
+                ch is '<' or '>' or ':' or '"' or
+                    '/' or '\\' or '|' or '?' or '*')
+            {
+                return false;
+            }
+        }
+
+        if (!candidate.EndsWith(
+                ".exe",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        normalized = candidate;
+        return true;
+    }
+
+    private static bool IsTrimWhitespace(char ch) =>
+        ch is ' ' or '\t' or '\r' or '\n' or '\v' or '\f';
+
+    private static bool TryNormalizeExcludedApplications(
+        IReadOnlyList<string> applications,
+        out string[] normalized,
+        out string? error)
+    {
+        normalized = Array.Empty<string>();
+
+        if (applications.Count >
+            MaxExcludedApplicationCount)
+        {
+            error =
+                $"Excluded application count out of range: {applications.Count}";
+            return false;
+        }
+
+        var result =
+            new string[applications.Count];
+        var seen =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase);
+
+        for (var index = 0;
+             index < applications.Count;
+             ++index)
+        {
+            if (!TryNormalizeExcludedApplicationName(
+                    applications[index],
+                    out var application))
+            {
+                error =
+                    $"Excluded application is invalid at index {index}.";
+                return false;
+            }
+
+            if (!seen.Add(application))
+            {
+                error =
+                    $"Excluded application is duplicated at index {index}.";
+                return false;
+            }
+
+            result[index] = application;
+        }
+
+        normalized = result;
         error = null;
         return true;
     }
@@ -306,6 +462,9 @@ public sealed class Settings : IEquatable<Settings>
             "true",
             StringComparison.Ordinal);
 
+        var excludedApplications =
+            ReadExcludedApplications(path);
+
         if (schemaVersion == LegacySchemaVersion)
         {
             return new Settings(
@@ -315,7 +474,8 @@ public sealed class Settings : IEquatable<Settings>
                     ReadRepeatSet(
                         path,
                         SettingsSection),
-                });
+                },
+                excludedApplications);
         }
 
         if (schemaVersion != CurrentSchemaVersion)
@@ -345,7 +505,8 @@ public sealed class Settings : IEquatable<Settings>
 
         return new Settings(
             enabled,
-            repeatSets);
+            repeatSets,
+            excludedApplications);
     }
 
     public static Settings Save(
@@ -366,23 +527,34 @@ public sealed class Settings : IEquatable<Settings>
         path = System.IO.Path.GetFullPath(path);
         if (!TryValidate(
                 settings,
-                out var error))
+                out var error) ||
+            !TryNormalizeExcludedApplications(
+                settings.ExcludedApplications,
+                out var excludedApplications,
+                out error))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(settings),
                 error);
         }
 
+        var normalizedSettings =
+            new Settings(
+                settings.Enabled,
+                settings.RepeatSets,
+                excludedApplications);
+
         EnsureParentDirectory(path);
         var durableEnabled =
             PublishV2(
                 path,
-                settings,
+                normalizedSettings,
                 enabledEdited);
 
         return new Settings(
             durableEnabled,
-            settings.RepeatSets);
+            normalizedSettings.RepeatSets,
+            normalizedSettings.ExcludedApplications);
     }
 
     public static Settings Patch(
@@ -465,6 +637,67 @@ public sealed class Settings : IEquatable<Settings>
             customTargets);
     }
 
+    private static IReadOnlyList<string>
+        ReadExcludedApplications(string path)
+    {
+        var selector = ReadString(
+            path,
+            SettingsSection,
+            ExcludedAppsActiveKey,
+            string.Empty);
+
+        var section = selector switch
+        {
+            "A" => ExcludedAppsSectionA,
+            "B" => ExcludedAppsSectionB,
+            _ => null,
+        };
+        if (section is null)
+        {
+            return Array.Empty<string>();
+        }
+
+        var count = ReadInteger(
+            path,
+            section,
+            "Count",
+            -1);
+        if (count < 0 ||
+            count > MaxExcludedApplicationCount)
+        {
+            return Array.Empty<string>();
+        }
+
+        var result =
+            new List<string>(count);
+        var seen =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase);
+
+        for (var index = 0;
+             index < count;
+             ++index)
+        {
+            if (!TryReadString(
+                    path,
+                    section,
+                    $"App{index}",
+                    ExcludedApplicationReadBufferSize,
+                    out var raw) ||
+                !TryNormalizeExcludedApplicationName(
+                    raw,
+                    out var application) ||
+                !seen.Add(application))
+            {
+                continue;
+            }
+
+            result.Add(application);
+        }
+
+        return result;
+    }
+
     private static int ReadInteger(
         string path,
         string section,
@@ -504,6 +737,36 @@ public sealed class Settings : IEquatable<Settings>
             path);
 
         return buffer.ToString();
+    }
+
+    private static bool TryReadString(
+        string path,
+        string section,
+        string key,
+        int bufferSize,
+        out string value)
+    {
+        var buffer =
+            new StringBuilder(bufferSize);
+
+        var copied = GetPrivateProfileString(
+            section,
+            key,
+            string.Empty,
+            buffer,
+            buffer.Capacity,
+            path);
+
+        if (copied == 0 ||
+            copied >=
+                (uint)(buffer.Capacity - 1))
+        {
+            value = string.Empty;
+            return false;
+        }
+
+        value = buffer.ToString();
+        return true;
     }
 
     private static bool TryReadDurableEnabled(
@@ -558,6 +821,11 @@ public sealed class Settings : IEquatable<Settings>
         Settings settings,
         bool enabledEdited)
     {
+        var excludedAppsSelector =
+            StageExcludedApplications(
+                path,
+                settings.ExcludedApplications);
+
         // Publish all indexed set content before making the v2 collection
         // authoritative. An existing v1 document remains readable until
         // SchemaVersion=2 is written last.
@@ -621,8 +889,58 @@ public sealed class Settings : IEquatable<Settings>
             CurrentSchemaVersion.ToString(
                 System.Globalization.CultureInfo.InvariantCulture));
 
+        // Commit the newly staged application bank only after every other
+        // Settings write for this Save succeeded.
+        Write(
+            path,
+            SettingsSection,
+            ExcludedAppsActiveKey,
+            excludedAppsSelector);
+
         Flush(path);
         return durableEnabled;
+    }
+
+    private static string StageExcludedApplications(
+        string path,
+        IReadOnlyList<string> applications)
+    {
+        var currentSelector = ReadString(
+            path,
+            SettingsSection,
+            ExcludedAppsActiveKey,
+            string.Empty);
+        var nextSelector =
+            string.Equals(
+                currentSelector,
+                "A",
+                StringComparison.Ordinal)
+                ? "B"
+                : "A";
+        var section =
+            nextSelector == "A"
+                ? ExcludedAppsSectionA
+                : ExcludedAppsSectionB;
+
+        for (var index = 0;
+             index < applications.Count;
+             ++index)
+        {
+            Write(
+                path,
+                section,
+                $"App{index}",
+                applications[index]);
+        }
+
+        Write(
+            path,
+            section,
+            "Count",
+            applications.Count.ToString(
+                System.Globalization.CultureInfo.InvariantCulture));
+
+        return nextSelector;
     }
 
     private static void Write(
@@ -694,7 +1012,8 @@ public sealed record SettingsPatch(
     int? RepeatIntervalMs = null,
     TargetPreset? TargetPreset = null,
     CustomTargetSet? CustomTargets = null,
-    IReadOnlyList<RepeatSettingSet>? RepeatSets = null)
+    IReadOnlyList<RepeatSettingSet>? RepeatSets = null,
+    IReadOnlyList<string>? ExcludedApplications = null)
 {
     public bool IsEmpty =>
         Enabled is null &&
@@ -702,7 +1021,8 @@ public sealed record SettingsPatch(
         RepeatIntervalMs is null &&
         TargetPreset is null &&
         CustomTargets is null &&
-        RepeatSets is null;
+        RepeatSets is null &&
+        ExcludedApplications is null;
 
     public Settings Apply(Settings current)
     {
@@ -741,6 +1061,8 @@ public sealed record SettingsPatch(
 
         return new Settings(
             Enabled ?? current.Enabled,
-            sets);
+            sets,
+            ExcludedApplications ??
+                current.ExcludedApplications);
     }
 }

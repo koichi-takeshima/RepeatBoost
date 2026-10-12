@@ -13,6 +13,22 @@ public:
     EngineControlPlane(
         HINSTANCE hInstance,
         settings::SettingsStore& settingsStore,
+        const settings::SettingsDocument& settings) noexcept
+        : hookExecution_(
+              hInstance,
+              settings.repeatSettings,
+              settings.excludedApplications),
+          controlWindow_(
+              hInstance,
+              settingsStore,
+              hookExecution_,
+              settingsProcess_)
+    {
+    }
+
+    EngineControlPlane(
+        HINSTANCE hInstance,
+        settings::SettingsStore& settingsStore,
         const engine::RepeatSettings settings) noexcept
         : hookExecution_(hInstance, settings),
           controlWindow_(
@@ -49,6 +65,9 @@ public:
     {
         if (!controlWindow_.Initialize()) return false;
 
+        // The existing hidden Control Window handles the slow Win32
+        // process-image queries; the Hook thread is never blocked by them.
+        hookExecution_.SetControlWindow(controlWindow_.WindowHandle());
         if (!hookExecution_.Initialize())
         {
             controlWindow_.Shutdown();

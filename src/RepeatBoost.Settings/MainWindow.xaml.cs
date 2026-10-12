@@ -27,6 +27,8 @@ public sealed partial class MainWindow : Window
     private CustomKeyCaptureState _customKeyCapture;
     private readonly ObservableCollection<RepeatSetEditorItem>
         _repeatSetEditors = [];
+    private readonly ObservableCollection<string>
+        _excludedApplications = [];
     private RepeatSetEditorItem? _customKeyCaptureOwner;
     private Button? _customKeyCaptureButton;
     private ContentControl? _customKeyCaptureSurface;
@@ -40,6 +42,10 @@ public sealed partial class MainWindow : Window
     // handles alive for the Window lifetime and release them from Closed.
     private nint _windowLargeIcon;
     private nint _windowSmallIcon;
+
+    public ObservableCollection<string>
+        ExcludedApplications =>
+        _excludedApplications;
 
     private Settings _originalSettings =
         Settings.Defaults;
@@ -461,6 +467,14 @@ public sealed partial class MainWindow : Window
 
         EnabledToggle.IsOn = settings.Enabled;
 
+        _excludedApplications.Clear();
+        foreach (var application in
+                 settings.ExcludedApplications)
+        {
+            _excludedApplications.Add(application);
+        }
+        RefreshExcludedAppsInputState();
+
         _repeatSetEditors.Clear();
         foreach (var setting in settings.RepeatSets)
         {
@@ -568,7 +582,8 @@ public sealed partial class MainWindow : Window
 
         return new Settings(
             EnabledToggle.IsOn,
-            repeatSets);
+            repeatSets,
+            _excludedApplications.ToArray());
     }
 
     private RepeatSettingSet ReadRepeatSettingSet(
@@ -845,6 +860,89 @@ public sealed partial class MainWindow : Window
         {
             CancelCustomKeyCapture();
         }
+    }
+
+    private void ExcludedAppsTokenBox_TokenItemAdding(
+        TokenizingTextBox sender,
+        TokenItemAddingEventArgs e)
+    {
+        if (_excludedApplications.Count >=
+            Settings.MaxExcludedApplicationCount)
+        {
+            e.Cancel = true;
+            ShowExcludedAppsInputError(
+                "ExcludedAppsLimitReached");
+            return;
+        }
+
+        if (!Settings.TryNormalizeExcludedApplicationName(
+                e.TokenText,
+                out var normalized))
+        {
+            e.Cancel = true;
+            ShowExcludedAppsInputError(
+                "ExcludedAppsInvalidName");
+            return;
+        }
+
+        if (_excludedApplications.Any(
+                application =>
+                    StringComparer.OrdinalIgnoreCase.Equals(
+                        application,
+                        normalized)))
+        {
+            e.Cancel = true;
+            ShowExcludedAppsInputError(
+                "ExcludedAppsDuplicate");
+            return;
+        }
+
+        e.Item = normalized;
+        ClearExcludedAppsInputError();
+    }
+
+    private void ExcludedAppsTokenBox_TokenItemAdded(
+        TokenizingTextBox sender,
+        object item)
+    {
+        RefreshExcludedAppsInputState();
+    }
+
+    private void ExcludedAppsTokenBox_TokenItemRemoved(
+        TokenizingTextBox sender,
+        object item)
+    {
+        RefreshExcludedAppsInputState();
+    }
+
+    private void RefreshExcludedAppsInputState()
+    {
+        if (_excludedApplications.Count >=
+            Settings.MaxExcludedApplicationCount)
+        {
+            ShowExcludedAppsInputError(
+                "ExcludedAppsLimitReached");
+            return;
+        }
+
+        ClearExcludedAppsInputError();
+    }
+
+    private void ShowExcludedAppsInputError(
+        string resourceKey)
+    {
+        ExcludedAppsInputError.Text =
+            _resources.GetString(resourceKey);
+        ExcludedAppsInputError.Visibility =
+            Visibility.Visible;
+    }
+
+    private void ClearExcludedAppsInputError()
+    {
+        ExcludedAppsInputError.Text =
+            string.Empty;
+        ExcludedAppsInputError.Visibility =
+            Visibility.Collapsed;
     }
 
     private void CustomKeyTokens_TextChanged(

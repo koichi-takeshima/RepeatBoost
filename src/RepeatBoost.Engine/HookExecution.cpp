@@ -1,5 +1,7 @@
 #include "HookExecution.h"
 
+#include <strsafe.h>
+
 namespace repeatboost::engine
 {
 namespace
@@ -29,11 +31,146 @@ namespace
     return true;
 }
 } // namespace
+
+ForegroundExclusion::ForegroundExclusion(
+    const settings::ExcludedApplicationList excluded) noexcept
+    : excluded_(excluded)
+{
+}
+
+ForegroundLookupRequest ForegroundExclusion::Observe(
+    const HWND hWindow,
+    const DWORD dwProcessId,
+    const ULONGLONG ullNowMs,
+    const bool bForce) noexcept
+{
+    if (!bForce &&
+        hWindow_ == hWindow &&
+        dwProcessId_ == dwProcessId)
+    {
+        return {};
+    }
+
+    hWindow_ = hWindow;
+    dwProcessId_ = dwProcessId;
+    ++ullGeneration_;
+    if (ullGeneration_ == 0) ++ullGeneration_;
+    ullPendingSinceMs_ = ullNowMs;
+    bExcluded_ = false;
+    szBasename_[0] = L'\0';
+
+    // An empty policy needs no process lookup, and unknown HWND/PID is
+    // a definitive lookup failure rather than an indefinitely pending one.
+    if (excluded_.uCount == 0)
+    {
+        status_ = ForegroundLookupStatus::Resolved;
+        return {};
+    }
+
+    if (hWindow == nullptr || dwProcessId == 0)
+    {
+        status_ = ForegroundLookupStatus::LookupFailed;
+        return {};
+    }
+
+    status_ = ForegroundLookupStatus::Pending;
+    return {
+        .hWindow = hWindow,
+        .dwProcessId = dwProcessId,
+        .ullGeneration = ullGeneration_,
+        .bNeeded = true,
+    };
+}
+
+bool ForegroundExclusion::Complete(
+    const HWND hWindow,
+    const DWORD dwProcessId,
+    const UINT64 ullGeneration,
+    const wchar_t* pszBasename) noexcept
+{
+    if (status_ != ForegroundLookupStatus::Pending ||
+        hWindow != hWindow_ ||
+        dwProcessId != dwProcessId_ ||
+        ullGeneration != ullGeneration_)
+    {
+        return false;
+    }
+
+    status_ = ForegroundLookupStatus::LookupFailed;
+    bExcluded_ = false;
+    szBasename_[0] = L'\0';
+
+    if (pszBasename == nullptr ||
+        pszBasename[0] == L'\0' ||
+        FAILED(StringCchCopyW(
+            szBasename_,
+            ARRAYSIZE(szBasename_),
+            pszBasename)))
+    {
+        return true;
+    }
+
+    status_ = ForegroundLookupStatus::Resolved;
+    bExcluded_ = excluded_.Contains(szBasename_);
+    return true;
+}
+
+bool ForegroundExclusion::IsRepeatAllowed(
+    const ULONGLONG ullNowMs) noexcept
+{
+    if (status_ == ForegroundLookupStatus::Pending &&
+        ullNowMs - ullPendingSinceMs_ >= kLookupDeadlineMs)
+    {
+        status_ = ForegroundLookupStatus::LookupFailed;
+        bExcluded_ = false;
+    }
+
+    return status_ == ForegroundLookupStatus::LookupFailed ||
+           (status_ == ForegroundLookupStatus::Resolved &&
+            !bExcluded_);
+}
+
+void ForegroundExclusion::ApplySettings(
+    const settings::ExcludedApplicationList& excluded) noexcept
+{
+    excluded_ = excluded;
+    if (status_ == ForegroundLookupStatus::Resolved)
+        bExcluded_ = excluded_.Contains(szBasename_);
+}
+
+void ForegroundExclusion::Invalidate() noexcept
+{
+    hWindow_ = nullptr;
+    dwProcessId_ = 0;
+    ++ullGeneration_;
+    if (ullGeneration_ == 0) ++ullGeneration_;
+    status_ = ForegroundLookupStatus::LookupFailed;
+    bExcluded_ = false;
+    szBasename_[0] = L'\0';
+}
+
+ForegroundLookupStatus ForegroundExclusion::Status() const noexcept
+{
+    return status_;
+}
+
+HWND ForegroundExclusion::Window() const noexcept
+{
+    return hWindow_;
+}
+
+DWORD ForegroundExclusion::ProcessId() const noexcept
+{
+    return dwProcessId_;
+}
+
 HookExecution::HookExecution(
     const HINSTANCE hInstance,
-    const RepeatSettings settings) noexcept
+    const RepeatSettings settings,
+    const settings::ExcludedApplicationList excluded) noexcept
     : hInstance_(hInstance),
-      repeatRuntime_(settings)
+      repeatRuntime_(settings),
+      foreground_(excluded)
 {
 }
 
@@ -123,6 +260,13 @@ bool HookExecution::Initialize()
 bool HookExecution::ApplySettings(
     const RepeatSettings settings) noexcept
 {
+    return ApplySettings(settings, {});
+}
+
+bool HookExecution::ApplySettings(
+    const RepeatSettings settings,
+    const settings::ExcludedApplicationList& excluded) noexcept
+{
     if (hThread_ == nullptr || dwThreadId_ == 0) return false;
 
     AcquireSRWLockShared(&settingsPostLock_);
@@ -132,11 +276,11 @@ bool HookExecution::ApplySettings(
         return false;
     }
 
-    auto* pSettingsSnapshot = static_cast<RepeatSettings*>(
+    auto* pSettingsSnapshot = static_cast<SettingsSnapshot*>(
         HeapAlloc(
             GetProcessHeap(),
             0,
-            sizeof(RepeatSettings)));
+            sizeof(SettingsSnapshot)));
     if (pSettingsSnapshot == nullptr)
     {
         ReleaseSRWLockShared(&settingsPostLock_);
@@ -144,7 +288,10 @@ bool HookExecution::ApplySettings(
         return false;
     }
 
-    *pSettingsSnapshot = settings;
+    *pSettingsSnapshot = SettingsSnapshot{
+        .repeat = settings,
+        .excluded = excluded,
+    };
     const bool bPosted =
         PostThreadMessageW(
             dwThreadId_,
@@ -180,6 +327,61 @@ bool HookExecution::ApplySettings(
             },
             .uCount = 1,
         });
+}
+
+void HookExecution::SetControlWindow(const HWND hWindow) noexcept
+{
+    // Assigned on the Control Window thread before Hook thread startup.
+    hControlWindow_ = hWindow;
+}
+
+void HookExecution::CompleteForegroundLookup(
+    const HWND hWindow,
+    const DWORD dwProcessId,
+    const UINT64 ullGeneration,
+    const wchar_t* pszBasename) noexcept
+{
+    AcquireSRWLockShared(&settingsPostLock_);
+    if (!bAcceptingSettingsMessages_ ||
+        hThread_ == nullptr ||
+        dwThreadId_ == 0)
+    {
+        ReleaseSRWLockShared(&settingsPostLock_);
+        return;
+    }
+
+    auto* pResult = static_cast<ForegroundLookupResult*>(
+        HeapAlloc(
+            GetProcessHeap(),
+            HEAP_ZERO_MEMORY,
+            sizeof(ForegroundLookupResult)));
+    if (pResult == nullptr)
+    {
+        ReleaseSRWLockShared(&settingsPostLock_);
+        // Pending will become LookupFailed at its bounded deadline.
+        return;
+    }
+
+    pResult->hWindow = hWindow;
+    pResult->dwProcessId = dwProcessId;
+    pResult->ullGeneration = ullGeneration;
+    if (pszBasename != nullptr)
+        (void)StringCchCopyW(
+            pResult->szBasename,
+            ARRAYSIZE(pResult->szBasename),
+            pszBasename);
+
+    if (PostThreadMessageW(
+            dwThreadId_,
+            kMessageForegroundLookupResult,
+            reinterpret_cast<WPARAM>(pResult),
+            0) == FALSE)
+    {
+        (void)HeapFree(GetProcessHeap(), 0, pResult);
+        // No process-wide safety-gate mutation for a lookup failure.
+    }
+
+    ReleaseSRWLockShared(&settingsPostLock_);
 }
 
 bool HookExecution::SetActive(const bool bActive) noexcept
@@ -335,6 +537,8 @@ DWORD HookExecution::Run() noexcept
 
     if (bReady)
     {
+        // The initial foreground might never produce a WinEvent.
+        RefreshForeground(true);
         AcquireSRWLockExclusive(&settingsPostLock_);
         bAcceptingSettingsMessages_ = true;
         ReleaseSRWLockExclusive(&settingsPostLock_);
@@ -393,12 +597,17 @@ int HookExecution::RunMessageLoop() noexcept
             if (!PumpMessages(nExitCode))
                 return nExitCode;
 
-            repeatRuntime_.HandleTimerSignaled(
-                ullGeneration,
+            // Check HWND/PID before a previously armed synthetic down.
+            // ForegroundChanged Stop preserves the old held-key claim.
+            const bool bActive =
                 InterlockedCompareExchange(
                     &lActiveGate_,
                     FALSE,
-                    FALSE) != FALSE);
+                    FALSE) != FALSE;
+            const bool bForegroundAllowed =
+                bActive && ForegroundRepeatAllowed();
+            repeatRuntime_.HandleTimerSignaled(
+                ullGeneration, bForegroundAllowed);
 
             if (!repeatRuntime_.Ready())
             {
@@ -463,7 +672,7 @@ bool HookExecution::HandleThreadMessage(
     case kMessageApplySettings:
     {
         auto* pSettingsSnapshot =
-            reinterpret_cast<RepeatSettings*>(
+            reinterpret_cast<SettingsSnapshot*>(
                 msg.wParam);
         if (pSettingsSnapshot == nullptr)
         {
@@ -471,16 +680,52 @@ bool HookExecution::HandleThreadMessage(
             return false;
         }
 
+        // Owned by the consuming Hook thread; a single immutable
+        // transport payload keeps both sets and exclusions in sync.
         const RepeatSettings settings =
-            *pSettingsSnapshot;
+            pSettingsSnapshot->repeat;
+        repeatRuntime_.Stop(
+            StopReason::SettingsReload);
+        foreground_.ApplySettings(
+            pSettingsSnapshot->excluded);
         (void)HeapFree(
             GetProcessHeap(),
             0,
             pSettingsSnapshot);
-
-        repeatRuntime_.Stop(
-            StopReason::SettingsReload);
         repeatRuntime_.ApplySettings(settings);
+        RefreshForeground(true);
+        return true;
+    }
+
+    case kMessageForegroundLookupResult:
+    {
+        auto* pResult = reinterpret_cast<ForegroundLookupResult*>(
+            msg.wParam);
+        if (pResult != nullptr)
+        {
+            // The completion may be queued long after a foreground
+            // transition or the bounded Pending deadline.
+            (void)foreground_.IsRepeatAllowed(GetTickCount64());
+            const HWND hCurrent = GetForegroundWindow();
+            DWORD dwCurrentProcessId = 0;
+            if (hCurrent != nullptr)
+                (void)GetWindowThreadProcessId(
+                    hCurrent, &dwCurrentProcessId);
+            if (hCurrent != foreground_.Window() ||
+                dwCurrentProcessId != foreground_.ProcessId())
+            {
+                RefreshForeground(false);
+            }
+            else
+            {
+                (void)foreground_.Complete(
+                    pResult->hWindow,
+                    pResult->dwProcessId,
+                    pResult->ullGeneration,
+                    pResult->szBasename);
+            }
+            (void)HeapFree(GetProcessHeap(), 0, pResult);
+        }
         return true;
     }
 
@@ -490,9 +735,11 @@ bool HookExecution::HandleThreadMessage(
             InterlockedExchange(&lActiveGate_, FALSE);
             repeatRuntime_.Stop(
                 StopReason::RuntimeSafetyFailure);
+            foreground_.Invalidate();
         }
         else
         {
+            RefreshForeground(true);
             InterlockedExchange(
                 &lActiveGate_,
                 repeatRuntime_.Ready() ? TRUE : FALSE);
@@ -561,13 +808,20 @@ LRESULT HookExecution::HandleLowLevelKeyboard(
             lParam);
     }
 
+    // Physical input and timer processing each check the actual
+    // foreground HWND before using a cached per-app policy.
+    const bool bActive =
+        InterlockedCompareExchange(
+            &lActiveGate_,
+            FALSE,
+            FALSE) != FALSE;
+    const bool bForegroundAllowed =
+        bActive &&
+        (inputFact.origin == InputOrigin::Injected ||
+         ForegroundRepeatAllowed());
     const HookDecision decision =
         repeatRuntime_.ProcessInput(
-            inputFact,
-            InterlockedCompareExchange(
-                &lActiveGate_,
-                FALSE,
-                FALSE) != FALSE);
+            inputFact, bForegroundAllowed);
 
     if (!repeatRuntime_.Ready())
     {
@@ -587,8 +841,50 @@ LRESULT HookExecution::HandleLowLevelKeyboard(
 
 void HookExecution::HandleForegroundChanged() noexcept
 {
-    repeatRuntime_.Stop(
-        StopReason::ForegroundChanged);
+    RefreshForeground(true);
+}
+
+void HookExecution::RefreshForeground(const bool bForce) noexcept
+{
+    const HWND hCurrent = GetForegroundWindow();
+    DWORD dwProcessId = 0;
+    if (hCurrent != nullptr)
+        (void)GetWindowThreadProcessId(hCurrent, &dwProcessId);
+
+    if (!bForce &&
+        foreground_.Window() == hCurrent &&
+        foreground_.ProcessId() == dwProcessId)
+    {
+        return;
+    }
+
+    // A changed window invalidates the old session immediately,
+    // independently from the duration of the process-name lookup.
+    repeatRuntime_.Stop(StopReason::ForegroundChanged);
+    const auto request = foreground_.Observe(
+        hCurrent, dwProcessId, GetTickCount64(), bForce);
+    if (!request.bNeeded) return;
+
+    if (hControlWindow_ == nullptr ||
+        PostMessageW(
+            hControlWindow_,
+            kMessageForegroundLookupRequest,
+            static_cast<WPARAM>(request.ullGeneration),
+            reinterpret_cast<LPARAM>(request.hWindow)) == FALSE)
+    {
+        // Failed delivery is a definitive LookupFailed, not Pending.
+        (void)foreground_.Complete(
+            request.hWindow,
+            request.dwProcessId,
+            request.ullGeneration,
+            nullptr);
+    }
+}
+
+bool HookExecution::ForegroundRepeatAllowed() noexcept
+{
+    RefreshForeground(false);
+    return foreground_.IsRepeatAllowed(GetTickCount64());
 }
 
 void HookExecution::CleanupThreadResources() noexcept
@@ -607,7 +903,7 @@ void HookExecution::CleanupThreadResources() noexcept
                PM_REMOVE) != FALSE)
     {
         auto* pSettingsSnapshot =
-            reinterpret_cast<RepeatSettings*>(
+            reinterpret_cast<SettingsSnapshot*>(
                 settingsMessage.wParam);
         if (pSettingsSnapshot != nullptr)
         {
@@ -616,6 +912,20 @@ void HookExecution::CleanupThreadResources() noexcept
                 0,
                 pSettingsSnapshot);
         }
+    }
+
+    MSG lookupResult{};
+    while (PeekMessageW(
+               &lookupResult,
+               nullptr,
+               kMessageForegroundLookupResult,
+               kMessageForegroundLookupResult,
+               PM_REMOVE) != FALSE)
+    {
+        auto* pResult =
+            reinterpret_cast<ForegroundLookupResult*>(lookupResult.wParam);
+        if (pResult != nullptr)
+            (void)HeapFree(GetProcessHeap(), 0, pResult);
     }
 
     ReleaseSRWLockExclusive(&settingsPostLock_);

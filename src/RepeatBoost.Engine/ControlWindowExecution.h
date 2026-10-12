@@ -96,6 +96,8 @@ private:
     void HandlePowerBroadcast(WPARAM wParamEvent);
     void HandleTaskbarCreated();
     void HandleSettingsExited();
+    void HandleForegroundLookupRequest(
+        HWND hWindow, UINT64 ullGeneration) noexcept;
     void ShowTrayMenu();
 
     [[nodiscard]] bool AddTrayIconWithRetry();

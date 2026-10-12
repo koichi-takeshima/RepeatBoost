@@ -23,6 +23,9 @@ constexpr int kInitialDelayMinMs = 0;
 constexpr int kInitialDelayMaxMs = 250;
 constexpr int kRepeatIntervalMinMs = 5;
 constexpr int kRepeatIntervalMaxMs = 33;
+constexpr DWORD kExcludedApplicationReadCapacity =
+    static_cast<DWORD>(
+        kExcludedApplicationNameCapacity + 1);
 constexpr SettingsDocument kSafeDefaults{};
 
 bool ReadProfileValue(
@@ -343,7 +346,288 @@ bool ReadEnabled(
 
     return false;
 }
+
+[[nodiscard]] bool IsTrimWhitespace(
+    const wchar_t ch) noexcept
+{
+    return ch == L' ' ||
+           ch == L'\t' ||
+           ch == L'\r' ||
+           ch == L'\n' ||
+           ch == L'\v' ||
+           ch == L'\f';
+}
+
+[[nodiscard]] bool IsInvalidFilenameCharacter(
+    const wchar_t ch) noexcept
+{
+    if (ch < 0x20)
+        return true;
+
+    switch (ch)
+    {
+    case L'<':
+    case L'>':
+    case L':':
+    case L'"':
+    case L'/':
+    case L'\\':
+    case L'|':
+    case L'?':
+    case L'*':
+        return true;
+    default:
+        return false;
+    }
+}
+
+[[nodiscard]] bool TryNormalizeExcludedApplication(
+    const wchar_t* pszValue,
+    wchar_t* pszNormalized,
+    const SIZE_T cchNormalizedCapacity) noexcept
+{
+    if (pszValue == nullptr ||
+        pszNormalized == nullptr ||
+        cchNormalizedCapacity == 0)
+    {
+        return false;
+    }
+
+    pszNormalized[0] = L'\0';
+
+    const wchar_t* pszBegin = pszValue;
+    while (*pszBegin != L'\0' &&
+           IsTrimWhitespace(*pszBegin))
+    {
+        ++pszBegin;
+    }
+
+    const wchar_t* pszEnd =
+        pszBegin + lstrlenW(pszBegin);
+    while (pszEnd > pszBegin &&
+           IsTrimWhitespace(pszEnd[-1]))
+    {
+        --pszEnd;
+    }
+
+    const SIZE_T cchLength =
+        static_cast<SIZE_T>(
+            pszEnd - pszBegin);
+    if (cchLength <= 4 ||
+        cchLength >
+            kExcludedApplicationNameCapacity - 1 ||
+        cchLength >= cchNormalizedCapacity)
+    {
+        return false;
+    }
+
+    for (SIZE_T uIndex = 0;
+         uIndex < cchLength;
+         ++uIndex)
+    {
+        if (IsInvalidFilenameCharacter(
+                pszBegin[uIndex]))
+        {
+            return false;
+        }
+    }
+
+    if (CompareStringOrdinal(
+            pszEnd - 4,
+            4,
+            L".exe",
+            4,
+            TRUE) != CSTR_EQUAL)
+    {
+        return false;
+    }
+
+    for (SIZE_T uIndex = 0;
+         uIndex < cchLength;
+         ++uIndex)
+    {
+        pszNormalized[uIndex] =
+            pszBegin[uIndex];
+    }
+    pszNormalized[cchLength] = L'\0';
+    return true;
+}
+
+[[nodiscard]] bool TryAddExcludedApplication(
+    ExcludedApplicationList& applications,
+    const wchar_t* pszValue) noexcept
+{
+    if (applications.uCount >=
+        kMaxExcludedApplications)
+    {
+        return false;
+    }
+
+    wchar_t szNormalized[
+        kExcludedApplicationNameCapacity]{};
+    if (!TryNormalizeExcludedApplication(
+            pszValue,
+            szNormalized,
+            ARRAYSIZE(szNormalized)) ||
+        applications.Contains(szNormalized))
+    {
+        return false;
+    }
+
+    if (FAILED(StringCchCopyW(
+            applications.szBasenames[
+                applications.uCount],
+            ARRAYSIZE(
+                applications.szBasenames[
+                    applications.uCount]),
+            szNormalized)))
+    {
+        return false;
+    }
+
+    ++applications.uCount;
+    return true;
+}
+
+[[nodiscard]] ExcludedApplicationList
+LoadExcludedApplications(
+    const wchar_t* pszPath)
+{
+    ExcludedApplicationList applications{};
+
+    wchar_t szSelector[4]{};
+    if (!ReadProfileValue(
+            pszPath,
+            kSettingsSection,
+            L"ExcludedAppsActive",
+            szSelector,
+            ARRAYSIZE(szSelector)))
+    {
+        return applications;
+    }
+
+    const wchar_t* pszSection = nullptr;
+    if (wcscmp(szSelector, L"A") == 0)
+    {
+        pszSection = L"ExcludedAppsA";
+    }
+    else if (wcscmp(szSelector, L"B") == 0)
+    {
+        pszSection = L"ExcludedAppsB";
+    }
+    else
+    {
+        return applications;
+    }
+
+    int nCount = 0;
+    if (!ReadProfileInt(
+            pszPath,
+            pszSection,
+            L"Count",
+            nCount) ||
+        nCount < 0 ||
+        nCount >
+            static_cast<int>(
+                kMaxExcludedApplications))
+    {
+        return applications;
+    }
+
+    for (int nIndex = 0;
+         nIndex < nCount;
+         ++nIndex)
+    {
+        wchar_t szKey[6] = L"App0";
+        if (nIndex < 10)
+        {
+            szKey[3] =
+                static_cast<wchar_t>(
+                    L'0' + nIndex);
+            szKey[4] = L'\0';
+        }
+        else
+        {
+            szKey[3] =
+                static_cast<wchar_t>(
+                    L'0' + (nIndex / 10));
+            szKey[4] =
+                static_cast<wchar_t>(
+                    L'0' + (nIndex % 10));
+            szKey[5] = L'\0';
+        }
+
+        wchar_t szValue[
+            kExcludedApplicationReadCapacity]{};
+        if (!ReadProfileValue(
+                pszPath,
+                pszSection,
+                szKey,
+                szValue,
+                ARRAYSIZE(szValue)))
+        {
+            continue;
+        }
+
+        (void)TryAddExcludedApplication(
+            applications,
+            szValue);
+    }
+
+    return applications;
+}
 } // namespace
+
+bool ExcludedApplicationList::Contains(
+    const wchar_t* pszBasename) const noexcept
+{
+    if (pszBasename == nullptr ||
+        pszBasename[0] == L'\0')
+    {
+        return false;
+    }
+
+    for (UINT uIndex = 0;
+         uIndex < uCount;
+         ++uIndex)
+    {
+        if (CompareStringOrdinal(
+                szBasenames[uIndex],
+                -1,
+                pszBasename,
+                -1,
+                TRUE) == CSTR_EQUAL)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool ExcludedApplicationList::operator==(
+    const ExcludedApplicationList& other) const noexcept
+{
+    if (uCount != other.uCount)
+        return false;
+
+    for (UINT uIndex = 0;
+         uIndex < uCount;
+         ++uIndex)
+    {
+        if (CompareStringOrdinal(
+                szBasenames[uIndex],
+                -1,
+                other.szBasenames[uIndex],
+                -1,
+                TRUE) != CSTR_EQUAL)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 SettingsStore::SettingsStore(
     const wchar_t* pszPath) noexcept
@@ -384,6 +668,9 @@ SettingsDocument SettingsStore::Load() const
     {
         return kSafeDefaults;
     }
+
+    settings.excludedApplications =
+        LoadExcludedApplications(szPath_);
 
     if (nSchemaVersion ==
         kLegacySchemaVersion)

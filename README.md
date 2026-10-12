@@ -10,7 +10,7 @@ A short tap is handled as a normal single keystroke. RepeatBoost starts its own 
 
 - Windows 11
 - x64
-- Product Version: **1.1.0**
+- Product Version: **1.2.0**
 
 ## Installation
 
@@ -77,7 +77,19 @@ Select **Custom** in a set's **Target keys** card to specify individual repeat t
 
 To add a key, click **+** (**Add custom key**) below the list. When prompted to press a key, **press the physical key you want to register**. The accepted key appears in the list; click a token's **×** to remove it. A key that is not eligible is ignored during capture. You can cancel capture by moving focus away.
 
-You cannot add Ctrl / Shift / Alt / Win or toggle keys such as CapsLock / NumLock / ScrollLock as repeat targets. Other keys, including function, media and keyboard-specific keys, may be used when their physical key event is delivered by Windows. Typing text into the token field does **not** register a key or define a macro. An empty Custom list matches no keys.
+You cannot add Ctrl / Shift / Alt / Win, toggle keys such as CapsLock / NumLock / ScrollLock, or the explicitly excluded IME/mode keys, PrintScreen and Pause as repeat targets. Other keys, including function, media and keyboard-specific keys, may be used when their physical key event is delivered by Windows. Typing text into the token field does **not** register a key or define a macro. An empty Custom list matches no keys.
+
+### Excluded apps
+
+The **Excluded apps** card in Settings lets you specify applications where RepeatBoost should not accelerate key repeat. Enter only an executable filename including `.exe`, such as `notepad.exe`; folder paths and filenames without `.exe` are not accepted. There is no file picker.
+
+Each accepted application appears as a token on its own row. Click a token's **×** to remove it. You can register **up to 32** applications. Leading and trailing whitespace is removed, and names are compared without regard to letter case, so `Notepad.EXE` and `notepad.exe` cannot both be registered. Even with 32 entries, you can still remove existing tokens and then add others. An empty list excludes no applications.
+
+When an excluded executable owns the foreground window, RepeatBoost **does not start or continue its own custom repeat**; ordinary physical key presses and releases still pass through. Different copies of an executable with the same filename are treated alike, regardless of their folder. Switching windows stops the current custom repeat, and a previously held key does not automatically resume repeating. A new physical key press can start custom repeat in a non-excluded application.
+
+While the foreground executable name is still being looked up, no new custom repeat starts. If the lookup **fails**, that failure alone does not exclude the application: when RepeatBoost is enabled and the key matches a configured target, custom repeat may begin on the **next fresh physical key press**. RepeatBoost does not restart an old held-key repeat.
+
+The excluded-app list is saved on normal Settings close and reloaded by the Engine, just like the other repeat settings; no Engine restart is required.
 
 ### Saving and window layout
 
@@ -117,9 +129,10 @@ Main behavior:
 
 **All Keys**
 
-- Ordinary keys, F1–F12, media keys, OEM / Japanese-keyboard-specific keys, PrintScreen, Pause, and other physical keys can be targets when Windows delivers their key events.
+- Ordinary keys, F1–F12, media keys and other non-excluded OEM / keyboard-specific keys can be targets when Windows delivers their physical key events.
 - Modifier keys themselves, such as Ctrl / Shift / Alt / Win, do not start repeat.
 - Toggle keys themselves, such as CapsLock / NumLock / ScrollLock, also do not start repeat.
+- IME/mode-switching keys specifically excluded by RepeatBoost, as well as PrintScreen and Pause, do not start custom repeat.
 
 **Custom**
 
@@ -166,7 +179,7 @@ A previous `settings.ini` can be reused after reinstalling RepeatBoost.
 ## Version / Author
 
 - Product: **RepeatBoost**
-- Product Version: **1.1.0**
+- Product Version: **1.2.0**
 - Author / Publisher: **Koichi Takeshima**
 
 ## License
@@ -188,7 +201,7 @@ RepeatBoost は、Windows 11 の標準 keyboard repeat より短い Initial Dela
 
 - Windows 11
 - x64
-- Product Version: **1.1.0**
+- Product Version: **1.2.0**
 
 ## インストール
 
@@ -255,7 +268,19 @@ Settings には、すべてのリピート設定に共通する次の項目が�
 
 キーを追加するには、一覧の下の **＋**（**カスタムキーを追加**）を押し、キー入力の案内が表示されたら **登録したい物理キーを実際に押します**。受け付けられたキーが一覧に追加されます。削除するときは各トークンの **×** を押します。登録できないキーは入力待ちの間に無視され、フォーカスを移すと入力待ちを解除できます。
 
-Ctrl / Shift / Alt / Win や CapsLock / NumLock / ScrollLock などの切り替えキー自身は登録できません。それ以外のファンクションキー、メディアキー、キーボード固有キーなども、Windows から物理キー入力として通知される場合は対象にできます。トークン欄へ文字を直接入力してもキー登録やマクロの設定にはなりません。カスタムが空の場合は、どのキーにも一致しません。
+Ctrl / Shift / Alt / Win、CapsLock / NumLock / ScrollLock 等の切り替えキー自身、および明示的に除外されるIME・入力モード切替キー、PrintScreen、Pauseは登録できません。それ以外のファンクションキー、メディアキー、キーボード固有キーなども、Windows から物理キー入力として通知される場合は対象にできます。トークン欄へ文字を直接入力してもキー登録やマクロの設定にはなりません。カスタムが空の場合は、どのキーにも一致しません。
+
+### 除外アプリ
+
+Settings の独立した **除外アプリ** カードで、キーリピート加速を無効にするアプリを指定できます。`notepad.exe` のように、**拡張子 `.exe` を含む実行ファイル名だけ**を手入力してください。フォルダーを含むパスや拡張子のない名前は登録できません。ファイル選択ボタンはありません。
+
+受け付けたアプリは **1行に1件ずつ縦に並ぶトークン**で表示され、各トークンの **×** で削除できます。登録上限は **32件**です。入力前後の空白は取り除かれ、大文字と小文字を区別せずに比較するため、`Notepad.EXE` と `notepad.exe` は重複登録できません。32件ある状態でも既存トークンを削除でき、削除後は別のアプリを追加できます。空の一覧では除外しません。
+
+登録した実行ファイルが前面にある間は、RepeatBoost **独自のキーリピートだけを開始・継続しません**。通常の物理キーの押下・解放はそのまま通します。配置フォルダーが異なっても同名の実行ファイルは同じ除外対象です。前面のウィンドウが切り替わると現在の独自リピートを停止し、押したままの古いキーは自動再開しません。除外対象でないアプリでは、新しくキーを押すと条件に応じて独自リピートを開始できます。
+
+前面アプリの実行ファイル名を**照会中**は新しい独自リピートを開始しません。名前の取得に**失敗した場合**は、それだけで除外対象にはせず、RepeatBoostが有効かつ設定された対象キーなら、**次の新しい物理キー押下**から独自リピートを開始できます。押し続けている以前のキーを途中から再開することはありません。
+
+除外アプリの一覧も、通常のSettings終了時に保存され、Engineが再読み込みします。Engine本体の再起動は不要です。
 
 ### 保存とウィンドウ配置
 
@@ -295,9 +320,10 @@ RepeatBoost の対象キーでは、最初の物理キー押下を通常どお�
 
 **すべてのキー**
 
-- 通常キー、F1～F12、メディアキー、OEM / 日本語キーボード固有キー、PrintScreen、Pause なども、Windows から物理キー入力として通知される場合は対象になります。
+- 通常キー、F1～F12、メディアキー、除外対象でないOEM / キーボード固有キーなども、Windows から物理キー入力として通知される場合は対象になります。
 - Ctrl / Shift / Alt / Win 等の modifier key 自身はリピートを開始しません。
 - CapsLock / NumLock / ScrollLock 等の切り替えキー自身もリピートを開始しません。
+- RepeatBoostが明示的に除外するIME・入力モード切替キー、およびPrintScreen・Pauseは独自リピートを開始しません。
 
 **カスタム**
 
@@ -344,7 +370,7 @@ Windows の次の画面から RepeatBoost をアンインストールできま�
 ## Version / Author
 
 - Product: **RepeatBoost**
-- Product Version: **1.1.0**
+- Product Version: **1.2.0**
 - Author / Publisher: **Koichi Takeshima**
 
 ## License

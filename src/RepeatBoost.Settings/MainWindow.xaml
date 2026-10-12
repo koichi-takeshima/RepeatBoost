@@ -59,6 +59,43 @@
                         x:Name="AutostartToggle" />
                 </controls:SettingsCard>
 
+                <controls:SettingsCard
+                    x:Uid="ExcludedAppsCard"
+                    ContentAlignment="Right">
+                    <StackPanel
+                        HorizontalAlignment="Right"
+                        Spacing="4">
+                        <controls:TokenizingTextBox
+                            x:Uid="ExcludedAppsTokenBox"
+                            x:Name="ExcludedAppsTokenBox"
+                            Width="160"
+                            HorizontalAlignment="Right"
+                            ItemsSource="{x:Bind ExcludedApplications, Mode=OneWay}"
+                            TokenItemAdding="ExcludedAppsTokenBox_TokenItemAdding"
+                            TokenItemAdded="ExcludedAppsTokenBox_TokenItemAdded"
+                            TokenItemRemoved="ExcludedAppsTokenBox_TokenItemRemoved">
+                            <controls:TokenizingTextBox.TokenItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" />
+                                </DataTemplate>
+                            </controls:TokenizingTextBox.TokenItemTemplate>
+                            <controls:TokenizingTextBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel
+                                        Orientation="Vertical"
+                                        Spacing="4" />
+                                </ItemsPanelTemplate>
+                            </controls:TokenizingTextBox.ItemsPanel>
+                        </controls:TokenizingTextBox>
+
+                        <TextBlock
+                            x:Name="ExcludedAppsInputError"
+                            Visibility="Collapsed"
+                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
                 <Grid
                     Margin="1,16,0,0">
                     <Grid.ColumnDefinitions>

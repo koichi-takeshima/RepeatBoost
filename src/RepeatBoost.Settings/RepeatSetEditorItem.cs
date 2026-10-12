@@ -31,8 +31,17 @@ internal sealed class RepeatSetEditorItem : INotifyPropertyChanged
                 TargetPreset.Custom => 2,
                 _ => 0,
             };
-        _customTargets =
-            setting.CustomTargets;
+        // Preserve the raw legacy INI mask. Only this editor working copy
+        // removes VKs forbidden by the same Custom capture policy.
+        _customTargets = setting.CustomTargets;
+        foreach (var virtualKey in _customTargets.Enumerate())
+        {
+            if (!CustomTargetSet.IsSelectableVirtualKey(virtualKey))
+            {
+                _customTargets =
+                    _customTargets.Set(virtualKey, included: false);
+            }
+        }
 
         RebuildCustomKeyTokens();
     }
@@ -135,6 +144,11 @@ internal sealed class RepeatSetEditorItem : INotifyPropertyChanged
     public void AddCustomTarget(
         int virtualKey)
     {
+        if (!CustomTargetSet.IsSelectableVirtualKey(virtualKey))
+        {
+            return;
+        }
+
         _customTargets =
             _customTargets.Set(virtualKey);
         RebuildCustomKeyTokens();

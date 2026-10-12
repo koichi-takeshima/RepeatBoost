@@ -22,7 +22,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
     repeatboost::EngineControlPlane controlPlane(
         hInstance,
         settingsStore,
-        settings.repeatSettings);
+        settings);
 
     controlPlane.SetConfiguredEnabled(settings.bEnabled);
 

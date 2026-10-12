@@ -173,6 +173,12 @@ LRESULT ControlWindowExecution::HandleWindowMessage(
         HandleSettingsExited();
         return 0;
 
+    case engine::HookExecution::kMessageForegroundLookupRequest:
+        HandleForegroundLookupRequest(
+            reinterpret_cast<HWND>(lParam),
+            static_cast<UINT64>(wParam));
+        return 0;
+
     case WM_TIMER:
         if (wParam == kWtsRetryTimerId)
         {
@@ -311,13 +317,66 @@ void ControlWindowExecution::HandleSettingsExited()
     const auto settings = settingsStore_.Load();
 
     if (!hookExecution_.ApplySettings(
-            settings.repeatSettings))
+            settings.repeatSettings,
+            settings.excludedApplications))
     {
         bHookControlReady_ = false;
     }
 
     facts_.bConfiguredEnabled = settings.bEnabled;
     RecomputeDerivedFacts();
+}
+
+void ControlWindowExecution::HandleForegroundLookupRequest(
+    const HWND hWindow,
+    const UINT64 ullGeneration) noexcept
+{
+    DWORD dwProcessId = 0;
+    if (hWindow != nullptr &&
+        GetForegroundWindow() == hWindow)
+    {
+        (void)GetWindowThreadProcessId(
+            hWindow, &dwProcessId);
+    }
+
+    wchar_t szBasename[settings::kExcludedApplicationNameCapacity]{};
+
+    if (dwProcessId != 0)
+    {
+        const HANDLE hProcess = OpenProcess(
+            PROCESS_QUERY_LIMITED_INFORMATION,
+            FALSE,
+            dwProcessId);
+        if (hProcess != nullptr)
+        {
+            wchar_t szImagePath[1024]{};
+            DWORD dwLength = ARRAYSIZE(szImagePath);
+            if (QueryFullProcessImageNameW(
+                    hProcess, 0, szImagePath, &dwLength) != FALSE)
+            {
+                const wchar_t* pszBasename = szImagePath;
+                for (const wchar_t* p = szImagePath; *p != L'\0'; ++p)
+                {
+                    if (*p == L'\\' || *p == L'/')
+                        pszBasename = p + 1;
+                }
+
+                (void)StringCchCopyW(
+                    szBasename,
+                    ARRAYSIZE(szBasename),
+                    pszBasename);
+            }
+            (void)CloseHandle(hProcess);
+        }
+    }
+
+    // A failure produces an empty basename, not a process-wide Disable.
+    // The Hook owner discards stale completion generations/identities.
+    hookExecution_.CompleteForegroundLookup(
+        hWindow,
+        dwProcessId,
+        ullGeneration,
+        szBasename);
 }
 
 void ControlWindowExecution::ShowTrayMenu()

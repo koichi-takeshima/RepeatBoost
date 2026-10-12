@@ -190,4 +190,29 @@
   <data name="SettingsNotSavedPrefix" xml:space="preserve">
     <value>設定を保存できませんでした:</value>
   </data>
+
+  <data name="ExcludedAppsCard.Header" xml:space="preserve">
+    <value>除外アプリ</value>
+  </data>
+  <data name="ExcludedAppsCard.Description" xml:space="preserve">
+    <value>指定したアプリでキーリピート加速を無効にします。</value>
+  </data>
+  <data name="ExcludedAppsTokenBox.PlaceholderText" xml:space="preserve">
+    <value>例: notepad.exe</value>
+  </data>
+  <data name="ExcludedAppsTokenBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>除外アプリ</value>
+  </data>
+  <data name="ExcludedAppsTokenBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve">
+    <value>RepeatBoostを無効にする実行ファイル名を入力します。最大32件です。</value>
+  </data>
+  <data name="ExcludedAppsInvalidName" xml:space="preserve">
+    <value>実行ファイル名（.exe）のみ入力できます。パスや使用できない文字は指定できません。</value>
+  </data>
+  <data name="ExcludedAppsDuplicate" xml:space="preserve">
+    <value>同じ実行ファイル名は既に登録されています。</value>
+  </data>
+  <data name="ExcludedAppsLimitReached" xml:space="preserve">
+    <value>除外アプリは32件までです。追加するには既存の項目を削除してください。</value>
+  </data>
 </root>

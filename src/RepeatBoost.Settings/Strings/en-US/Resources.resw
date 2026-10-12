@@ -190,4 +190,29 @@
   <data name="SettingsNotSavedPrefix" xml:space="preserve">
     <value>Settings were not saved:</value>
   </data>
+
+  <data name="ExcludedAppsCard.Header" xml:space="preserve">
+    <value>Excluded apps</value>
+  </data>
+  <data name="ExcludedAppsCard.Description" xml:space="preserve">
+    <value>Disable RepeatBoost custom key repeat in the specified apps. Enter executable filenames ending in .exe.</value>
+  </data>
+  <data name="ExcludedAppsTokenBox.PlaceholderText" xml:space="preserve">
+    <value>Example: notepad.exe</value>
+  </data>
+  <data name="ExcludedAppsTokenBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Excluded apps</value>
+  </data>
+  <data name="ExcludedAppsTokenBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve">
+    <value>Enter executable filenames where RepeatBoost should be disabled. Up to 32 apps.</value>
+  </data>
+  <data name="ExcludedAppsInvalidName" xml:space="preserve">
+    <value>Enter an executable filename ending in .exe. Paths and invalid filename characters are not allowed.</value>
+  </data>
+  <data name="ExcludedAppsDuplicate" xml:space="preserve">
+    <value>That executable filename is already registered.</value>
+  </data>
+  <data name="ExcludedAppsLimitReached" xml:space="preserve">
+    <value>Up to 32 excluded apps can be registered. Remove an existing item before adding another.</value>
+  </data>
 </root>

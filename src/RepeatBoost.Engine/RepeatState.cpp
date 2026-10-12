@@ -12,10 +12,11 @@ namespace
            dwVirtualKey == VK_DOWN;
 }
 
-[[nodiscard]] bool IsModifierKey(const DWORD dwVirtualKey) noexcept
+[[nodiscard]] bool IsExcludedRepeatKey(const DWORD dwVirtualKey) noexcept
 {
     switch (dwVirtualKey)
     {
+    // Modifiers
     case VK_SHIFT:
     case VK_CONTROL:
     case VK_MENU:
@@ -27,24 +28,39 @@ namespace
     case VK_RMENU:
     case VK_LWIN:
     case VK_RWIN:
+
+    // Toggle keys
+    case VK_CAPITAL:
+    case VK_NUMLOCK:
+    case VK_SCROLL:
+
+    // IME / NLS keys
+    case VK_OEM_AUTO:
+    case VK_KANJI:
+    case VK_OEM_ENLW:
+    // VK_DBE_ALPHANUMERIC/KATAKANA/HIRAGANA/ROMAN are not defined
+    // by this MSVC Windows SDK. These SDK VK_OEM_* names have the
+    // same numeric identities: F0 / F1 / F2 / F5, respectively.
+    case VK_OEM_ATTN:
+    case VK_OEM_FINISH:
+    case VK_OEM_COPY:
+    case VK_OEM_BACKTAB:
+    case VK_KANA:
+    case VK_IME_ON:
+    case VK_IME_OFF:
+    case VK_MODECHANGE:
+    case VK_CONVERT:
+    case VK_NONCONVERT:
+    case VK_PROCESSKEY:
+
+    // Other USER-selected special keys
+    case VK_SNAPSHOT:
+    case VK_PAUSE:
         return true;
 
     default:
         return false;
     }
-}
-
-[[nodiscard]] bool IsToggleKey(const DWORD dwVirtualKey) noexcept
-{
-    return dwVirtualKey == VK_CAPITAL ||
-           dwVirtualKey == VK_NUMLOCK ||
-           dwVirtualKey == VK_SCROLL;
-}
-
-[[nodiscard]] bool IsFirstVersionAllKeysTarget(const DWORD dwVirtualKey) noexcept
-{
-    return !IsModifierKey(dwVirtualKey) &&
-           !IsToggleKey(dwVirtualKey);
 }
 
 [[nodiscard]] bool IsRepeatTarget(
@@ -57,10 +73,10 @@ namespace
         return IsArrowKey(dwVirtualKey);
 
     case TargetPreset::AllKeys:
-        return IsFirstVersionAllKeysTarget(dwVirtualKey);
+        return !IsExcludedRepeatKey(dwVirtualKey);
 
     case TargetPreset::Custom:
-        return IsFirstVersionAllKeysTarget(dwVirtualKey) &&
+        return !IsExcludedRepeatKey(dwVirtualKey) &&
                target.customTargets.Contains(dwVirtualKey);
     }
 
